@@ -1,5 +1,5 @@
-// 로컬 스토리지 기반 상태 관리 (DB 없이도 동작)
 import { SurveyAnswers, Scores, BodyType } from "./scoring";
+import { supabase } from "./supabase";
 
 export interface BasicInfo {
   name: string;
@@ -40,8 +40,11 @@ const STORAGE_KEY = "dietcamp_participant";
 
 export function saveParticipant(data: Partial<ParticipantData>) {
   const existing = loadParticipant() ?? {};
-  const merged = { ...existing, ...data };
+  const merged = { ...existing, ...data } as ParticipantData;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+
+  // Supabase에 비동기 동기화 (실패해도 앱은 계속 작동)
+  syncToSupabase(merged).catch(() => {});
 }
 
 export function loadParticipant(): ParticipantData | null {
@@ -72,4 +75,36 @@ export function calculateBMI(weight: number, height: number) {
   else if (bmi < 30.0) category = "비만 1단계";
   else category = "비만 2단계";
   return { bmi: Math.round(bmi * 10) / 10, category };
+}
+
+async function syncToSupabase(data: ParticipantData) {
+  if (!data.basicInfo?.name || !data.basicInfo?.birthDate) return;
+
+  const row = {
+    name: data.basicInfo.name,
+    birth_date: data.basicInfo.birthDate,
+    age: data.basicInfo.age,
+    gender: data.basicInfo.gender,
+    height: data.basicInfo.height,
+    weight: data.basicInfo.weight,
+    goal_weight: data.basicInfo.goalWeight,
+    bmi: data.basicInfo.bmi,
+    bmi_category: data.basicInfo.bmiCategory,
+    medications: data.basicInfo.medications,
+    medication_detail: data.basicInfo.medicationDetail ?? null,
+    diseases: data.basicInfo.diseases,
+    disease_detail: data.basicInfo.diseaseDetail ?? null,
+    menopause_symptoms: data.basicInfo.menopauseSymptoms ?? null,
+    week1_answers: data.week1Answers ?? null,
+    week1_scores: data.week1Scores ?? null,
+    body_type: data.bodyType ?? null,
+    weekly_records: data.weeklyRecords ?? [],
+    week12_answers: data.week12Answers ?? null,
+    week12_scores: data.week12Scores ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  await supabase
+    .from("participants")
+    .upsert(row, { onConflict: "name,birth_date" });
 }
