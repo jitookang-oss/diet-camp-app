@@ -3,7 +3,80 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { saveParticipant, loadParticipant, ParticipantData } from "@/lib/store";
+import { getCampDayInfo, CampDayInfo, CAMP_START_DATE } from "@/lib/missions";
 import KoreanInput from "@/components/KoreanInput";
+
+function DayCounter({ info }: { info: CampDayInfo }) {
+  if (info.isBeforeStart) {
+    const daysLeft = Math.abs(info.daysFromStart);
+    return (
+      <div className="card p-5 mb-6 text-center bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100">
+        <p className="text-xs text-green-600 font-medium mb-1 uppercase tracking-wide">캠프 시작까지</p>
+        <p className="text-5xl font-bold text-green-700 mb-1">
+          D-{daysLeft}
+        </p>
+        <p className="text-sm text-gray-500">
+          {CAMP_START_DATE.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} 시작
+        </p>
+      </div>
+    );
+  }
+
+  if (info.isAfterCamp) {
+    return (
+      <div className="card p-5 mb-6 text-center bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-100">
+        <p className="text-2xl mb-1">🏆</p>
+        <p className="text-lg font-bold text-amber-700">12주 캠프 완료!</p>
+        <p className="text-sm text-gray-500">수고하셨습니다</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card p-5 mb-6 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-xs text-green-600 font-medium uppercase tracking-wide mb-0.5">진행 중</p>
+          <p className="text-2xl font-bold text-green-800">
+            {info.campDay}일차 · {info.campWeek}주차
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-gray-400 mb-0.5">전체 진행률</p>
+          <p className="text-sm font-semibold text-gray-600">{info.campDay} / 84일</p>
+        </div>
+      </div>
+      <div className="w-full bg-green-100 rounded-full h-2">
+        <div
+          className="bg-green-500 h-2 rounded-full transition-all"
+          style={{ width: `${Math.min((info.campDay / 84) * 100, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MissionCard({ info }: { info: CampDayInfo }) {
+  if (!info.currentMission) return null;
+  const { currentMission, campWeek } = info;
+
+  return (
+    <div className="card p-5 mb-6 border-l-4 border-green-500">
+      <div className="flex items-start gap-3">
+        <span className="text-2xl">{currentMission.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+              {campWeek}주차 미션
+            </span>
+          </div>
+          <p className="font-bold text-gray-800 text-sm mb-1">{currentMission.title}</p>
+          <p className="text-xs text-gray-500 leading-relaxed">{currentMission.detail}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -11,9 +84,11 @@ export default function HomePage() {
   const [birthDate, setBirthDate] = useState("");
   const [error, setError] = useState("");
   const [existing, setExisting] = useState<ParticipantData | null>(null);
+  const [campInfo, setCampInfo] = useState<CampDayInfo | null>(null);
 
   useEffect(() => {
     setExisting(loadParticipant());
+    setCampInfo(getCampDayInfo());
   }, []);
 
   function handleStart(e: React.FormEvent) {
@@ -75,13 +150,13 @@ export default function HomePage() {
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         {/* 헤더 */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm mb-6">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm mb-4">
             <span className="text-green-700 font-semibold text-sm">이지약국</span>
             <span className="text-gray-400">·</span>
             <span className="text-gray-500 text-sm">@보라매직</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3 leading-tight">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2 leading-tight">
             12주<br />다이어트 캠프
           </h1>
           <p className="text-gray-500 text-sm">
@@ -90,9 +165,15 @@ export default function HomePage() {
           </p>
         </div>
 
+        {/* D-day 카운터 */}
+        {campInfo && <DayCounter info={campInfo} />}
+
+        {/* 이번 주 미션 */}
+        {campInfo && <MissionCard info={campInfo} />}
+
         {/* 기존 기록 있는 경우 */}
         {existing?.basicInfo?.name && (
-          <div className="card p-5 mb-4 border-l-4 border-green-500">
+          <div className="card p-5 mb-4 border-l-4 border-blue-400">
             <p className="text-sm text-gray-500 mb-1">이전에 시작한 기록이 있어요</p>
             <p className="font-semibold text-gray-800 mb-3">
               {existing.basicInfo.name}님 반갑습니다 👋
@@ -144,7 +225,7 @@ export default function HomePage() {
         </div>
 
         {/* 3M 아이콘 */}
-        <div className="mt-8 grid grid-cols-3 gap-3 text-center">
+        <div className="mt-6 grid grid-cols-3 gap-3 text-center">
           {[
             { icon: "🍽️", label: "Meal", desc: "식사 습관" },
             { icon: "🚶", label: "Mobility", desc: "활동 대사" },
