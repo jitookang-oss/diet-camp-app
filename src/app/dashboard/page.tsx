@@ -1,0 +1,299 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { loadParticipant, ParticipantData, getCurrentWeek } from "@/lib/store";
+import { bodyTypeInfo } from "@/lib/scoring";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts";
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [data, setData] = useState<ParticipantData | null>(null);
+
+  useEffect(() => {
+    const d = loadParticipant();
+    if (!d?.week1Scores) {
+      router.push("/");
+      return;
+    }
+    setData(d);
+  }, [router]);
+
+  if (!data) return null;
+
+  const { basicInfo, week1Scores, weeklyRecords, bodyType } = data;
+  const currentWeek = getCurrentWeek(data);
+  const typeInfo = bodyType ? bodyTypeInfo[bodyType] : null;
+
+  // 몸무게 그래프 데이터
+  const weightData = [
+    { week: "1주", weight: basicInfo.weight },
+    ...(weeklyRecords ?? []).map((r) => ({
+      week: `${r.week}주`,
+      weight: r.weight,
+    })),
+  ];
+
+  // 3M 스코어 그래프 데이터
+  const scoreData = [
+    {
+      week: "1주",
+      Meal: week1Scores?.meal,
+      Mobility: week1Scores?.mobility,
+      Mentation: week1Scores?.mentation,
+    },
+    ...(weeklyRecords ?? []).map((r) => ({
+      week: `${r.week}주`,
+      Meal: r.scores.meal,
+      Mobility: r.scores.mobility,
+      Mentation: r.scores.mentation,
+    })),
+  ];
+
+  const latestWeight =
+    weeklyRecords.length > 0
+      ? weeklyRecords[weeklyRecords.length - 1].weight
+      : basicInfo.weight;
+  const weightDiff = Math.round((latestWeight - basicInfo.weight) * 10) / 10;
+  const progressToGoal =
+    basicInfo.weight === basicInfo.goalWeight
+      ? 100
+      : Math.min(
+          100,
+          Math.max(
+            0,
+            Math.round(
+              ((basicInfo.weight - latestWeight) /
+                (basicInfo.weight - basicInfo.goalWeight)) *
+                100
+            )
+          )
+        );
+
+  return (
+    <main className="min-h-screen px-4 py-10 pb-24">
+      <div className="w-full max-w-md mx-auto space-y-4">
+        {/* 헤더 */}
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {basicInfo.name}님의 대시보드
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            현재 {currentWeek - 1}주차 진행 중
+          </p>
+        </div>
+
+        {/* 요약 카드 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="card p-4 text-center">
+            <p className="text-xs text-gray-500 mb-1">현재 몸무게</p>
+            <p className="text-2xl font-black text-gray-900">
+              {latestWeight}
+              <span className="text-sm font-normal text-gray-500 ml-1">kg</span>
+            </p>
+            <p
+              className={`text-xs font-semibold mt-1 ${
+                weightDiff <= 0 ? "text-green-600" : "text-red-500"
+              }`}
+            >
+              {weightDiff <= 0 ? `▼ ${Math.abs(weightDiff)}` : `▲ ${weightDiff}`} kg
+            </p>
+          </div>
+
+          <div className="card p-4 text-center">
+            <p className="text-xs text-gray-500 mb-1">목표까지</p>
+            <p className="text-2xl font-black text-green-700">
+              {progressToGoal}
+              <span className="text-sm font-normal text-gray-500 ml-1">%</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              목표 {basicInfo.goalWeight}kg
+            </p>
+          </div>
+        </div>
+
+        {/* 체질 유형 */}
+        {typeInfo && bodyType && (
+          <div className="card p-4 flex items-center gap-4">
+            <div className="text-3xl">{typeInfo.icon}</div>
+            <div>
+              <p className="text-xs text-gray-500">나의 체질 유형</p>
+              <p className="font-bold text-gray-800">{bodyType}</p>
+              <p className="text-xs text-gray-600 mt-0.5">{typeInfo.guide}</p>
+            </div>
+            <button
+              onClick={() => router.push("/result")}
+              className="ml-auto text-green-700 text-xs font-semibold flex-shrink-0"
+            >
+              상세 →
+            </button>
+          </div>
+        )}
+
+        {/* 몸무게 그래프 */}
+        <div className="card p-5">
+          <h3 className="font-bold text-gray-800 mb-4">몸무게 변화</h3>
+          {weightData.length >= 2 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={weightData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="week" tick={{ fontSize: 12 }} />
+                <YAxis
+                  domain={["auto", "auto"]}
+                  tick={{ fontSize: 12 }}
+                  width={40}
+                />
+                <Tooltip />
+                <ReferenceLine
+                  y={basicInfo.goalWeight}
+                  stroke="#22c55e"
+                  strokeDasharray="5 5"
+                  label={{
+                    value: "목표",
+                    fontSize: 11,
+                    fill: "#22c55e",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="weight"
+                  stroke="#2d6a4f"
+                  strokeWidth={2.5}
+                  dot={{ fill: "#2d6a4f", r: 4 }}
+                  name="몸무게"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+              <p className="text-sm">2주차부터 그래프가 표시돼요</p>
+            </div>
+          )}
+        </div>
+
+        {/* 3M 스코어 그래프 */}
+        <div className="card p-5">
+          <h3 className="font-bold text-gray-800 mb-4">3M 스코어 변화</h3>
+          {scoreData.length >= 2 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={scoreData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="week" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} width={35} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line
+                  type="monotone"
+                  dataKey="Meal"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Mobility"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Mentation"
+                  stroke="#8b5cf6"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+              <p className="text-sm">2주차부터 그래프가 표시돼요</p>
+            </div>
+          )}
+        </div>
+
+        {/* 주차별 기록 */}
+        {weeklyRecords.length > 0 && (
+          <div className="card p-5">
+            <h3 className="font-bold text-gray-800 mb-0.5">주차별 기록</h3>
+            <p className="text-xs text-gray-400 mb-3">각 점수는 100점 만점 기준</p>
+            {/* 헤더 */}
+            <div className="flex items-center justify-between pb-2 border-b border-gray-200 text-xs font-semibold text-gray-400">
+              <span className="w-10">주차</span>
+              <span className="w-14">몸무게</span>
+              <span className="text-amber-500">식사</span>
+              <span className="text-blue-500">활동</span>
+              <span className="text-purple-500">마음</span>
+            </div>
+            <div className="space-y-0">
+              {[
+                {
+                  week: 1,
+                  weight: basicInfo.weight,
+                  scores: week1Scores!,
+                  completedAt: "",
+                },
+                ...weeklyRecords,
+              ].map((r) => (
+                <div
+                  key={r.week}
+                  className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0"
+                >
+                  <span className="text-sm font-semibold text-gray-700 w-10">
+                    {r.week}주
+                  </span>
+                  <span className="text-sm text-gray-600 w-14">
+                    {r.weight}kg
+                  </span>
+                  <span className="text-sm font-bold text-amber-600 w-10 text-center">
+                    {r.scores?.meal ?? "-"}
+                  </span>
+                  <span className="text-sm font-bold text-blue-600 w-10 text-center">
+                    {r.scores?.mobility ?? "-"}
+                  </span>
+                  <span className="text-sm font-bold text-purple-600 w-10 text-center">
+                    {r.scores?.mentation ?? "-"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 다음 주차 버튼 */}
+        {currentWeek <= 12 && (
+          <button
+            onClick={() =>
+              currentWeek <= 11
+                ? router.push("/weekly")
+                : router.push("/survey?week=12")
+            }
+            className="btn-primary"
+          >
+            {currentWeek <= 11
+              ? `${currentWeek}주차 체크 시작 →`
+              : "12주차 최종 설문 →"}
+          </button>
+        )}
+
+        {/* 처음으로 */}
+        <button
+          onClick={() => router.push("/")}
+          className="btn-secondary"
+        >
+          처음으로
+        </button>
+      </div>
+    </main>
+  );
+}
