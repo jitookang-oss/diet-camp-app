@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadParticipant, ParticipantData } from "@/lib/store";
-import { bodyTypeInfo, Scores } from "@/lib/scoring";
+import { bodyTypeInfo, Scores, getSupplements } from "@/lib/scoring";
 import {
   RadarChart,
   PolarGrid,
@@ -46,6 +46,89 @@ function ScoreBar({
   );
 }
 
+// ─── 영양제 추천 섹션 ─────────────────────────────────────
+const colorTokens: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  amber:  { bg: "bg-amber-50",  text: "text-amber-800",  border: "border-amber-200",  dot: "bg-amber-400" },
+  blue:   { bg: "bg-blue-50",   text: "text-blue-800",   border: "border-blue-200",   dot: "bg-blue-400" },
+  purple: { bg: "bg-purple-50", text: "text-purple-800", border: "border-purple-200", dot: "bg-purple-400" },
+  green:  { bg: "bg-green-50",  text: "text-green-800",  border: "border-green-200",  dot: "bg-green-500" },
+  red:    { bg: "bg-red-50",    text: "text-red-800",    border: "border-red-200",    dot: "bg-red-400" },
+};
+
+function SupplementSection({
+  bodyType,
+  scores,
+  weight,
+}: {
+  bodyType: import("@/lib/scoring").BodyType;
+  scores: Scores;
+  weight: number;
+}) {
+  const groups = getSupplements(bodyType, scores);
+  const proteinGoal = Math.round(weight * 1.5);
+
+  return (
+    <div className="space-y-4">
+      {/* 섹션 헤더 */}
+      <div className="flex items-center gap-2">
+        <span className="text-xl">💊</span>
+        <h3 className="font-bold text-gray-800 text-base">약사 추천 영양제</h3>
+        <span className="ml-auto text-xs text-gray-400">이보라 약사 처방</span>
+      </div>
+
+      {groups.map((group) => {
+        const tok = colorTokens[group.color] ?? colorTokens.green;
+        return (
+          <div key={group.label} className="card p-5">
+            {/* 그룹 레이블 */}
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-4 ${tok.bg} ${tok.text}`}>
+              <span className={`w-2 h-2 rounded-full ${tok.dot}`} />
+              {group.label}
+            </div>
+
+            <div className="space-y-4">
+              {group.supplements.map((s) => (
+                <div key={s.name} className={`rounded-xl border p-4 ${tok.border} bg-white`}>
+                  {/* 영양제 이름 */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="font-bold text-gray-800 text-sm leading-snug">{s.name}</p>
+                    {s.timing && (
+                      <span className="text-xs text-gray-400 whitespace-nowrap shrink-0 mt-0.5">⏰ {s.timing}</span>
+                    )}
+                  </div>
+
+                  {/* 추천 이유 */}
+                  <p className="text-xs text-gray-600 leading-relaxed mb-2">{s.reason}</p>
+
+                  {/* 효과 체감 신호 */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-400">체감 신호</span>
+                    <span className={`text-xs font-medium ${tok.text}`}>{s.signal}</span>
+                  </div>
+
+                  {/* 단백질 가이드 */}
+                  {s.isProtein && (
+                    <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2">
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        <span className="font-bold text-gray-700">하루 권장 섭취량</span>은{" "}
+                        <span className="font-bold text-green-700">
+                          체중 × 1.5g = 약 {proteinGoal}g
+                        </span>
+                        이에요. 식사만으로 채우기 어렵다면 보충제로 보완하세요.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 function ResultContent() {
   const router = useRouter();
   const params = useSearchParams();
@@ -235,6 +318,11 @@ function ResultContent() {
               })}
             </div>
           </div>
+        )}
+
+        {/* 영양제 추천 — 1주차 결과에서만 표시 */}
+        {!isWeek12 && (
+          <SupplementSection bodyType={bodyType} scores={scores} weight={data.basicInfo.weight} />
         )}
 
         {/* 버튼 */}
