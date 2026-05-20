@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadParticipant, ParticipantData } from "@/lib/store";
 import { bodyTypeInfo, Scores, getSupplements } from "@/lib/scoring";
+import PdfReport from "./PdfReport";
 import {
   RadarChart,
   PolarGrid,
@@ -134,6 +135,8 @@ function ResultContent() {
   const params = useSearchParams();
   const isWeek12 = params.get("week") === "12";
   const [data, setData] = useState<ParticipantData | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const d = loadParticipant();
@@ -154,6 +157,34 @@ function ResultContent() {
   if (!scores || !bodyType) {
     router.push("/");
     return null;
+  }
+
+  async function handleDownloadPdf() {
+    if (!pdfRef.current || !data) return;
+    setPdfLoading(true);
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(pdfRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#0d2818",
+        logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = (canvas.height * pageW) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
+      pdf.save(`${data.basicInfo.name}_3M리포트_${isWeek12 ? "12주차" : "1주차"}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("PDF 저장 중 오류가 발생했어요. 다시 시도해주세요.");
+    } finally {
+      setPdfLoading(false);
+    }
   }
 
   const info = bodyTypeInfo[bodyType];
@@ -325,13 +356,37 @@ function ResultContent() {
           <SupplementSection bodyType={bodyType} scores={scores} weight={data.basicInfo.weight} />
         )}
 
-        {/* 버튼 */}
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="btn-primary"
+        {/* 버튼 영역 */}
+        <div className="space-y-3">
+          {/* PDF 저장 버튼 */}
+          <button
+            onClick={handleDownloadPdf}
+            disabled={pdfLoading}
+            className="btn-secondary"
+          >
+            {pdfLoading ? "PDF 생성 중..." : "📄 PDF 결과지 저장"}
+          </button>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="btn-primary"
+          >
+            {isWeek12 ? "최종 대시보드 보기 →" : "매주 기록하러 가기 →"}
+          </button>
+        </div>
+
+        {/* PDF 캡처 전용 영역 — 화면 밖에 숨김 */}
+        <div
+          style={{
+            position: "fixed",
+            top: "-9999px",
+            left: "-9999px",
+            zIndex: -1,
+            pointerEvents: "none",
+          }}
+          ref={pdfRef}
         >
-          {isWeek12 ? "최종 대시보드 보기 →" : "매주 기록하러 가기 →"}
-        </button>
+          <PdfReport data={data} scores={scores} isWeek12={isWeek12} />
+        </div>
       </div>
     </main>
   );
