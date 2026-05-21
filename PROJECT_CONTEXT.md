@@ -59,6 +59,8 @@
 - 3M 점수 (100점 만점)
 - 레이더 차트 (균형 분석)
 - 12주 전후 비교 (최종 설문 완료 시)
+- 약사 추천 영양제 (1주차만, 체질 유형별 맞춤)
+- PDF 결과지 다운로드 (html2canvas + jsPDF, A4 형식)
 
 ### `/dashboard` — 대시보드
 - 주차별 몸무게 변화 (LineChart)
@@ -176,20 +178,22 @@ updated_at
 ```
 src/
 ├── app/
-│   ├── page.tsx          # 홈 (D-day + 미션 + 로그인)
-│   ├── onboarding/       # 기본정보 입력 3단계
-│   ├── survey/           # 25문항 설문 (week 파라미터)
-│   ├── result/           # 체질 분석 결과
-│   ├── dashboard/        # 주차별 진행 현황
-│   ├── weekly/           # 주차 라우팅 (redirect only)
-│   └── admin/            # 관리자 페이지
+│   ├── page.tsx              # 홈 (D-day + 미션 + 로그인)
+│   ├── onboarding/           # 기본정보 입력 3단계
+│   ├── survey/               # 25문항 설문 (week 파라미터)
+│   ├── result/
+│   │   ├── page.tsx          # 체질 분석 결과 + 영양제 추천
+│   │   └── PdfReport.tsx     # PDF 캡처 전용 레이아웃 컴포넌트
+│   ├── dashboard/            # 주차별 진행 현황
+│   ├── weekly/               # 주차 라우팅 (redirect only)
+│   └── admin/                # 관리자 페이지
 ├── lib/
-│   ├── store.ts          # localStorage + Supabase 동기화
-│   ├── scoring.ts        # 점수 계산 + 체질 분류
-│   ├── missions.ts       # 주차 미션 + D-day 계산
-│   └── supabase.ts       # Supabase 클라이언트
+│   ├── store.ts              # localStorage + Supabase 동기화
+│   ├── scoring.ts            # 점수 계산 + 체질 분류 + 영양제 추천
+│   ├── missions.ts           # 주차 미션 + D-day 계산
+│   └── supabase.ts           # Supabase 클라이언트
 └── components/
-    └── KoreanInput.tsx   # 한글 IME 버그 방지 입력 컴포넌트
+    └── KoreanInput.tsx       # 한글 IME 버그 방지 입력 컴포넌트
 ```
 
 ---
@@ -204,9 +208,21 @@ src/
 
 ---
 
-## 미완성 / 향후 계획
+## 구현 완료 내역
 
-- PDF 결과지 출력
+| 기능 | 완료일 | 비고 |
+|------|--------|------|
+| 초기 앱 구현 (홈·온보딩·설문·결과·대시보드) | 2026-05 | |
+| D-day 카운터 + 주차별 미션 카드 | 2026-05 | |
+| Supabase 연동 + 관리자 페이지 | 2026-05 | |
+| 설문 문항 수정 (Q13·Q15·Q19·Q21·Q24 삭제) | 2026-05 | |
+| 영양제 추천 기능 (체질 유형별 4그룹) | 2026-05 | |
+| PDF 결과지 다운로드 (html2canvas + jsPDF) | 2026-05 | A4, 다크 테마 |
+
+---
+
+## 향후 계획
+
 - 카카오 알림톡 연동
 - 관리자 페이지 엑셀 내보내기
 - 참여자 기기 변경 시 Supabase에서 데이터 복원
