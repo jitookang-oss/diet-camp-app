@@ -67,12 +67,12 @@ function CheckinContent() {
             꾸준함이 변화를 만들어요!
           </p>
         </div>
-        <a
-          href="/"
-          className="mt-8 inline-block btn-primary"
+        <button
+          onClick={() => window.close()}
+          className="mt-8 btn-primary"
         >
-          앱으로 이동
-        </a>
+          확인 완료 ✅
+        </button>
       </div>
     );
   }
@@ -85,9 +85,12 @@ function CheckinContent() {
         <p className="text-gray-500 mb-6">
           {name ? `${name}님은 ` : ""}오늘 {label} 이미 완료하셨어요.
         </p>
-        <a href="/" className="inline-block btn-secondary">
-          앱으로 이동
-        </a>
+        <button
+          onClick={() => window.close()}
+          className="btn-secondary"
+        >
+          확인 완료 ✅
+        </button>
       </div>
     );
   }
