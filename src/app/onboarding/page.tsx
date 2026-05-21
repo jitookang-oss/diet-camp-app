@@ -25,6 +25,7 @@ export default function OnboardingPage() {
   const [diseases, setDiseases] = useState(false);
   const [diseaseDetail, setDiseaseDetail] = useState("");
   const [menopause, setMenopause] = useState<string[]>([]);
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -58,6 +59,11 @@ export default function OnboardingPage() {
       }
       setStep(2);
     } else if (step === 2) {
+      const clean = phone.replace(/-/g, "");
+      if (phone && !/^0\d{9,10}$/.test(clean)) {
+        setError("올바른 전화번호를 입력해주세요. (예: 01012345678)");
+        return;
+      }
       setStep(3);
     } else if (step === 3) {
       // 완료
@@ -83,6 +89,7 @@ export default function OnboardingPage() {
           diseases,
           diseaseDetail: diseases ? diseaseDetail : undefined,
           menopauseSymptoms: gender === "여" ? menopause : undefined,
+          phone: phone.replace(/-/g, "") || undefined,
         },
       });
       router.push("/survey");
@@ -210,6 +217,17 @@ export default function OnboardingPage() {
             </p>
 
             <div className="space-y-6">
+              <div>
+                <label className="label-text">카카오톡 알림 수신 번호</label>
+                <p className="text-xs text-gray-400 mb-2">매일 영양제·운동 알림을 드려요 (선택)</p>
+                <input
+                  className="input-field"
+                  type="tel"
+                  placeholder="01012345678 (하이픈 없이)"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
               <div>
                 <label className="label-text">복용 중인 약이 있나요?</label>
                 <div className="toggle-yes-no mb-2">

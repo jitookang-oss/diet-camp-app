@@ -16,6 +16,7 @@ export interface BasicInfo {
   diseases: boolean;
   diseaseDetail?: string;
   menopauseSymptoms?: string[];
+  phone?: string;
 }
 
 export interface WeeklyRecord {
@@ -95,6 +96,7 @@ async function syncToSupabase(data: ParticipantData) {
     diseases: data.basicInfo.diseases,
     disease_detail: data.basicInfo.diseaseDetail ?? null,
     menopause_symptoms: data.basicInfo.menopauseSymptoms ?? null,
+    phone: data.basicInfo.phone ?? null,
     week1_answers: data.week1Answers ?? null,
     week1_scores: data.week1Scores ?? null,
     body_type: data.bodyType ?? null,

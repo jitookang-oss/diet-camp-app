@@ -1,0 +1,50 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { sendAlimtalk, generateCheckinToken } from "@/lib/alimtalk";
+import { getCampDayInfo } from "@/lib/missions";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/rest\/v1\/?$/, "");
+
+export async function GET(request: Request) {
+  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const templateId = process.env.SOLAPI_TEMPLATE_EVENING;
+  if (!templateId || templateId === "PENDING") {
+    return NextResponse.json({ error: "알림톡 템플릿 미설정" }, { status: 503 });
+  }
+
+  const supabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const { data: participants, error } = await supabase
+    .from("participants")
+    .select("name, phone")
+    .not("phone", "is", null);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const { campWeek } = getCampDayInfo();
+  const today = new Date().toISOString().slice(0, 10);
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://diet-camp-app.vercel.app";
+
+  const results = [];
+  for (const p of participants ?? []) {
+    if (!p.phone) continue;
+    const token = generateCheckinToken(p.phone, today, "evening_exercise");
+    const url = `${baseUrl}/checkin?type=evening_exercise&date=${today}&phone=${encodeURIComponent(p.phone)}&token=${token}`;
+    try {
+      await sendAlimtalk({
+        to: p.phone,
+        templateId,
+        variables: { "#{이름}": p.name, "#{주차}": String(campWeek || 1) },
+        buttonName: "✅ 저녁 운동 완료",
+        buttonUrl: url,
+      });
+      results.push({ phone: p.phone, success: true });
+    } catch (err) {
+      results.push({ phone: p.phone, success: false, error: String(err) });
+    }
+  }
+
+  return NextResponse.json({ sent: results.length, results });
+}
