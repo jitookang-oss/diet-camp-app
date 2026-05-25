@@ -1,10 +1,12 @@
 import crypto from "crypto";
 import { SolapiMessageService } from "solapi";
 
-const client = new SolapiMessageService(
-  process.env.SOLAPI_API_KEY!,
-  process.env.SOLAPI_API_SECRET!
-);
+function getClient() {
+  return new SolapiMessageService(
+    process.env.SOLAPI_API_KEY!,
+    process.env.SOLAPI_API_SECRET!
+  );
+}
 
 export function generateCheckinToken(phone: string, date: string, type: string): string {
   const secret = process.env.CHECKIN_SECRET || "diet-camp-secret";
@@ -37,7 +39,7 @@ export async function sendAlimtalk({
   buttonName: string;
   buttonUrl: string;
 }) {
-  return client.send({
+  return getClient().send({
     to,
     from: process.env.SOLAPI_SENDER_PHONE!,
     type: "ATA",
