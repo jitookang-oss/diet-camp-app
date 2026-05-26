@@ -30,12 +30,19 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const data = loadParticipant();
-    if (!data?.basicInfo?.name) {
-      router.push("/");
+    if (data?.basicInfo?.name) {
+      setInfo(data.basicInfo);
+      setGender(data.basicInfo.gender ?? "여");
       return;
     }
-    setInfo(data.basicInfo);
-    setGender(data.basicInfo.gender ?? "여");
+    // 초대 링크로 진입한 경우
+    const inviteName = localStorage.getItem("invite_name");
+    const invitePhone = localStorage.getItem("invite_phone");
+    if (inviteName) {
+      setInfo({ name: inviteName, phone: invitePhone ?? undefined } as BasicInfo);
+      return;
+    }
+    router.push("/");
   }, [router]);
 
   const bmiResult =
