@@ -78,23 +78,25 @@ export async function POST(request: NextRequest) {
 // 참여자 삭제
 export async function DELETE(request: NextRequest) {
   const body = await request.json();
-  const { password, phone } = body as { password: string; phone: string };
+  const { password, id, phone } = body as { password: string; id: string; phone?: string };
 
   if (password !== process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
     return NextResponse.json({ error: "인증 실패" }, { status: 401 });
   }
 
-  if (!phone) {
-    return NextResponse.json({ error: "전화번호가 필요합니다." }, { status: 400 });
+  if (!id) {
+    return NextResponse.json({ error: "참여자 ID가 필요합니다." }, { status: 400 });
   }
 
   const supabase = getSupabase();
 
-  // daily_checkins 먼저 삭제
-  await supabase.from("daily_checkins").delete().eq("phone", phone);
+  // phone 있으면 daily_checkins도 삭제
+  if (phone) {
+    await supabase.from("daily_checkins").delete().eq("phone", phone);
+  }
 
-  // participants 삭제
-  const { error } = await supabase.from("participants").delete().eq("phone", phone);
+  // participants는 id 기준으로 삭제
+  const { error } = await supabase.from("participants").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

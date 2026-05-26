@@ -132,7 +132,7 @@ function ParticipantDetail({
     const res = await fetch("/api/admin/participants", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, phone: p.phone }),
+      body: JSON.stringify({ password, id: p.id, phone: p.phone }),
     });
     setDeleting(false);
     if (res.ok) {
