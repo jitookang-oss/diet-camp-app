@@ -455,6 +455,138 @@ function ExcelUploadModal({
   );
 }
 
+const CHECKIN_TYPES = [
+  { key: "supplement", label: "영양제", icon: "💊" },
+  { key: "lunch_walk", label: "점심 걷기", icon: "🚶" },
+  { key: "evening_exercise", label: "저녁 운동", icon: "🌙" },
+] as const;
+
+interface CheckinRecord {
+  phone: string;
+  name: string;
+  type: string;
+}
+
+function CheckinTab({ participants }: { participants: Participant[] }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(todayStr);
+  const [checkins, setCheckins] = useState<CheckinRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function fetchCheckins(d: string) {
+    setLoading(true);
+    const { data } = await supabase
+      .from("daily_checkins")
+      .select("phone, name, type")
+      .eq("check_date", d);
+    setCheckins((data as CheckinRecord[]) ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => { fetchCheckins(date); }, [date]);
+
+  const checkinSet = new Set(checkins.map((c) => `${c.phone}::${c.type}`));
+
+  const summary = CHECKIN_TYPES.map((t) => ({
+    ...t,
+    count: checkins.filter((c) => c.type === t.key).length,
+    total: participants.filter((p) => p.phone).length,
+  }));
+
+  return (
+    <div>
+      {/* 날짜 선택 + 새로고침 */}
+      <div className="flex items-center gap-3 mb-5">
+        <input
+          type="date"
+          value={date}
+          max={todayStr}
+          onChange={(e) => setDate(e.target.value)}
+          className="input-field w-auto px-3 py-2 text-sm"
+        />
+        <button
+          onClick={() => fetchCheckins(date)}
+          className="btn-secondary text-sm px-4 py-2"
+        >
+          새로고침
+        </button>
+        {date === todayStr && (
+          <span className="text-xs text-green-600 font-semibold bg-green-50 px-3 py-1 rounded-full">오늘</span>
+        )}
+      </div>
+
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {summary.map((t) => (
+          <div key={t.key} className="card p-4 text-center">
+            <div className="text-2xl mb-1">{t.icon}</div>
+            <div className="text-xs text-gray-500 mb-1">{t.label}</div>
+            <div className="text-2xl font-black text-gray-800">
+              {t.count}
+              <span className="text-sm font-normal text-gray-400"> / {t.total}</span>
+            </div>
+            {t.total > 0 && (
+              <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all"
+                  style={{ width: `${Math.round((t.count / t.total) * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 참여자별 체크인 현황 테이블 */}
+      {loading ? (
+        <div className="text-center py-16 text-gray-400">불러오는 중...</div>
+      ) : participants.filter((p) => p.phone).length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <p>전화번호가 등록된 참여자가 없어요</p>
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">이름</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">전화번호</th>
+                {CHECKIN_TYPES.map((t) => (
+                  <th key={t.key} className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase">
+                    {t.icon} {t.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {participants
+                .filter((p) => p.phone)
+                .map((p) => (
+                  <tr key={p.id} className="border-b border-gray-100 last:border-0">
+                    <td className="py-3 px-4 font-semibold text-gray-800 text-sm">{p.name}</td>
+                    <td className="py-3 px-4 text-sm text-gray-400">{p.phone}</td>
+                    {CHECKIN_TYPES.map((t) => {
+                      const done = checkinSet.has(`${p.phone}::${t.key}`);
+                      return (
+                        <td key={t.key} className="py-3 px-4 text-center">
+                          {done ? (
+                            <span className="inline-flex items-center justify-center w-7 h-7 bg-green-100 text-green-600 rounded-full text-sm font-bold">✓</span>
+                          ) : (
+                            <span className="inline-flex items-center justify-center w-7 h-7 bg-gray-100 text-gray-300 rounded-full text-sm">–</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
@@ -465,6 +597,7 @@ export default function AdminPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [toast, setToast] = useState("");
+  const [activeTab, setActiveTab] = useState<"participants" | "checkin">("participants");
 
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -523,67 +656,95 @@ export default function AdminPage() {
     <main className="min-h-screen px-4 py-8">
       <div className="max-w-5xl mx-auto">
         {/* 헤더 */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">참여자 관리</h1>
+            <h1 className="text-2xl font-bold text-gray-800">관리자</h1>
             <p className="text-sm text-gray-500 mt-0.5">이지약국 12주 다이어트 캠프</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="bg-green-100 text-green-700 font-semibold px-4 py-2 rounded-full text-sm">
-              총 {participants.length}명
-            </span>
-            <button
-              onClick={() => setShowExcelModal(true)}
-              className="btn-secondary text-sm px-4 py-2"
-            >
-              📊 엑셀 업로드
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn-primary text-sm px-4 py-2"
-            >
-              + 참여자 추가
-            </button>
-          </div>
-        </div>
-
-        {/* 참여자 테이블 */}
-        {loading ? (
-          <div className="text-center py-20 text-gray-400">불러오는 중...</div>
-        ) : participants.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <div className="text-4xl mb-3">📭</div>
-            <p className="mb-4">아직 참여자가 없어요</p>
-            <div className="flex gap-3 justify-center">
-              <button onClick={() => setShowExcelModal(true)} className="btn-secondary">
-                📊 엑셀로 일괄 등록
+          {activeTab === "participants" && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="bg-green-100 text-green-700 font-semibold px-4 py-2 rounded-full text-sm">
+                총 {participants.length}명
+              </span>
+              <button
+                onClick={() => setShowExcelModal(true)}
+                className="btn-secondary text-sm px-4 py-2"
+              >
+                📊 엑셀 업로드
               </button>
-              <button onClick={() => setShowAddModal(true)} className="btn-primary">
-                + 한 명씩 추가
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn-primary text-sm px-4 py-2"
+              >
+                + 참여자 추가
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="card overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">이름 / 전화번호</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">성별 · 나이</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">BMI</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">체질</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">초기점수</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">감량</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">진행</th>
-                </tr>
-              </thead>
-              <tbody>
-                {participants.map((p) => (
-                  <ParticipantRow key={p.id} p={p} onClick={() => setSelected(p)} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          )}
+        </div>
+
+        {/* 탭 */}
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
+          {([
+            { key: "participants", label: "참여자 목록" },
+            { key: "checkin", label: "체크인 현황" },
+          ] as const).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === tab.key
+                  ? "bg-white text-gray-800 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 탭 콘텐츠 */}
+        {activeTab === "participants" && (
+          loading ? (
+            <div className="text-center py-20 text-gray-400">불러오는 중...</div>
+          ) : participants.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <div className="text-4xl mb-3">📭</div>
+              <p className="mb-4">아직 참여자가 없어요</p>
+              <div className="flex gap-3 justify-center">
+                <button onClick={() => setShowExcelModal(true)} className="btn-secondary">
+                  📊 엑셀로 일괄 등록
+                </button>
+                <button onClick={() => setShowAddModal(true)} className="btn-primary">
+                  + 한 명씩 추가
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="card overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">이름 / 전화번호</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">성별 · 나이</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">BMI</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">체질</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">초기점수</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">감량</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">진행</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {participants.map((p) => (
+                    <ParticipantRow key={p.id} p={p} onClick={() => setSelected(p)} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+
+        {activeTab === "checkin" && (
+          <CheckinTab participants={participants} />
         )}
       </div>
 
