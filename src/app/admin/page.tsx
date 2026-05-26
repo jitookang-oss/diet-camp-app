@@ -30,6 +30,8 @@ interface Participant {
   }>;
   week12_scores: Record<string, number> | null;
   phone: string | null;
+  invite_token: string | null;
+  is_onboarded: boolean;
   updated_at: string;
 }
 
@@ -56,7 +58,14 @@ function ParticipantRow({ p, onClick }: { p: Participant; onClick: () => void })
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={onClick}>
       <td className="py-3 px-4">
-        <div className="font-semibold text-gray-800">{p.name}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-800">{p.name}</span>
+          {p.is_onboarded ? (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">온보딩완료</span>
+          ) : (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">미완료</span>
+          )}
+        </div>
         <div className="text-xs text-gray-400">{p.phone ?? "번호없음"}</div>
       </td>
       <td className="py-3 px-4 text-sm text-gray-500">
@@ -92,13 +101,58 @@ function ParticipantRow({ p, onClick }: { p: Participant; onClick: () => void })
   );
 }
 
-function ParticipantDetail({ p, onClose }: { p: Participant; onClose: () => void }) {
+function ParticipantDetail({
+  p,
+  password,
+  onClose,
+  onDeleted,
+}: {
+  p: Participant;
+  password: string;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://diet-camp-app.vercel.app";
+  const inviteUrl = p.invite_token ? `${baseUrl}/invite?token=${p.invite_token}` : null;
+
+  function handleCopyLink() {
+    if (!inviteUrl) return;
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    const res = await fetch("/api/admin/participants", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, phone: p.phone }),
+    });
+    setDeleting(false);
+    if (res.ok) {
+      onDeleted();
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
           <div>
-            <h2 className="font-bold text-lg text-gray-800">{p.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-lg text-gray-800">{p.name}</h2>
+              {p.is_onboarded ? (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">온보딩완료</span>
+              ) : (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">미완료</span>
+              )}
+            </div>
             <p className="text-sm text-gray-500">
               {p.gender || "-"} · {p.age > 0 ? `${p.age}세` : "-"} · {p.phone ?? "번호없음"}
             </p>
@@ -107,6 +161,25 @@ function ParticipantDetail({ p, onClose }: { p: Participant; onClose: () => void
         </div>
 
         <div className="p-6 space-y-5">
+          {/* 초대 링크 */}
+          {inviteUrl && (
+            <div className="bg-blue-50 rounded-xl p-4">
+              <p className="text-xs font-semibold text-blue-700 mb-2">초대 링크</p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={inviteUrl}
+                  className="flex-1 text-xs bg-white border border-blue-200 rounded-lg px-3 py-2 text-gray-600 truncate"
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className="text-xs font-semibold px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap"
+                >
+                  {copied ? "복사됨 ✓" : "복사"}
+                </button>
+              </div>
+            </div>
+          )}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">신체 정보</h3>
             <div className="grid grid-cols-3 gap-3">
@@ -200,6 +273,39 @@ function ParticipantDetail({ p, onClose }: { p: Participant; onClose: () => void
               </div>
             </div>
           )}
+
+          {/* 삭제 */}
+          <div className="pt-2 border-t border-gray-100">
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full text-sm text-red-500 hover:text-red-700 font-semibold py-2 rounded-xl hover:bg-red-50 transition-colors"
+              >
+                참여자 삭제
+              </button>
+            ) : (
+              <div className="bg-red-50 rounded-xl p-4 text-center">
+                <p className="text-sm font-semibold text-red-700 mb-3">
+                  {p.name}님의 모든 데이터가 삭제됩니다. 정말 삭제할까요?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="btn-secondary flex-1 text-sm py-2"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 text-sm py-2 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleting ? "삭제 중..." : "삭제 확인"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -749,7 +855,18 @@ export default function AdminPage() {
       </div>
 
       {/* 상세 모달 */}
-      {selected && <ParticipantDetail p={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <ParticipantDetail
+          p={selected}
+          password={password}
+          onClose={() => setSelected(null)}
+          onDeleted={() => {
+            setSelected(null);
+            fetchParticipants();
+            showToast(`${selected.name}님이 삭제됐어요.`);
+          }}
+        />
+      )}
 
       {/* 참여자 추가 모달 */}
       {showAddModal && (
