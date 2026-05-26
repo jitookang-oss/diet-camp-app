@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import * as XLSX from "xlsx";
 
 interface Participant {
   id: string;
@@ -28,6 +29,7 @@ interface Participant {
     completedAt: string;
   }>;
   week12_scores: Record<string, number> | null;
+  phone: string | null;
   updated_at: string;
 }
 
@@ -45,26 +47,20 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
-function ParticipantRow({
-  p,
-  onClick,
-}: {
-  p: Participant;
-  onClick: () => void;
-}) {
+function ParticipantRow({ p, onClick }: { p: Participant; onClick: () => void }) {
   const latestRecord = p.weekly_records?.[p.weekly_records.length - 1];
   const currentWeight = latestRecord?.weight ?? p.weight;
   const weightLost = p.weight > 0 ? Math.round((p.weight - currentWeight) * 10) / 10 : null;
   const progress = p.weekly_records?.length ?? 0;
 
   return (
-    <tr
-      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-      onClick={onClick}
-    >
+    <tr className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={onClick}>
       <td className="py-3 px-4">
         <div className="font-semibold text-gray-800">{p.name}</div>
-        <div className="text-xs text-gray-400">{p.gender} · {p.age}세</div>
+        <div className="text-xs text-gray-400">{p.phone ?? "번호없음"}</div>
+      </td>
+      <td className="py-3 px-4 text-sm text-gray-500">
+        {p.gender || "-"} · {p.age > 0 ? `${p.age}세` : "-"}
       </td>
       <td className="py-3 px-4 text-sm text-gray-600">
         {p.bmi > 0 ? (
@@ -82,49 +78,35 @@ function ParticipantRow({
         ) : <span className="text-gray-300">미완료</span>}
       </td>
       <td className="py-3 px-4 text-sm">
-        {p.week1_scores ? (
-          <ScoreBadge score={p.week1_scores.total ?? 0} />
-        ) : <span className="text-gray-300">-</span>}
+        {p.week1_scores ? <ScoreBadge score={p.week1_scores.total ?? 0} /> : <span className="text-gray-300">-</span>}
       </td>
       <td className="py-3 px-4 text-sm">
-        {p.week12_scores ? (
-          <ScoreBadge score={p.week12_scores.total ?? 0} />
-        ) : <span className="text-gray-300">-</span>}
-      </td>
-      <td className="py-3 px-4 text-sm text-gray-600">
         {weightLost !== null && weightLost > 0 ? (
           <span className="text-green-600 font-medium">-{weightLost}kg</span>
         ) : weightLost !== null && weightLost < 0 ? (
           <span className="text-red-500 font-medium">+{Math.abs(weightLost)}kg</span>
         ) : "-"}
       </td>
-      <td className="py-3 px-4 text-sm text-gray-500">
-        {progress}주 완료
-      </td>
+      <td className="py-3 px-4 text-sm text-gray-500">{progress}주 완료</td>
     </tr>
   );
 }
 
-function ParticipantDetail({
-  p,
-  onClose,
-}: {
-  p: Participant;
-  onClose: () => void;
-}) {
+function ParticipantDetail({ p, onClose }: { p: Participant; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
           <div>
             <h2 className="font-bold text-lg text-gray-800">{p.name}</h2>
-            <p className="text-sm text-gray-500">{p.gender} · {p.age}세 · {p.birth_date}</p>
+            <p className="text-sm text-gray-500">
+              {p.gender || "-"} · {p.age > 0 ? `${p.age}세` : "-"} · {p.phone ?? "번호없음"}
+            </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
         </div>
 
         <div className="p-6 space-y-5">
-          {/* 신체 정보 */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">신체 정보</h3>
             <div className="grid grid-cols-3 gap-3">
@@ -144,7 +126,6 @@ function ParticipantDetail({
             </div>
           </div>
 
-          {/* 건강 상태 */}
           {(p.medications || p.diseases || (p.menopause_symptoms?.length ?? 0) > 0) && (
             <div>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">건강 상태</h3>
@@ -171,7 +152,6 @@ function ParticipantDetail({
             </div>
           )}
 
-          {/* 초기/최종 3M 점수 */}
           {(p.week1_scores || p.week12_scores) && (
             <div>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">3M 점수 비교</h3>
@@ -199,17 +179,10 @@ function ParticipantDetail({
             </div>
           )}
 
-          {/* 주차별 기록 */}
           {(p.weekly_records?.length ?? 0) > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">주차별 몸무게</h3>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-gray-500 px-3">
-                  <span className="w-12">주차</span>
-                  <span className="w-16">몸무게</span>
-                  <span className="w-12">변화</span>
-                  <span>종합</span>
-                </div>
                 {p.weekly_records.map((rec, i) => {
                   const prev = i === 0 ? p.weight : p.weekly_records[i - 1].weight;
                   const diff = Math.round((rec.weight - prev) * 10) / 10;
@@ -233,6 +206,255 @@ function ParticipantDetail({
   );
 }
 
+// 단건 등록 모달
+function AddParticipantModal({
+  password,
+  onClose,
+  onSuccess,
+}: {
+  password: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const cleanPhone = phone.replace(/-/g, "");
+    if (!name.trim()) { setError("이름을 입력해주세요."); return; }
+    if (!/^0\d{9,10}$/.test(cleanPhone)) { setError("올바른 전화번호를 입력해주세요. (예: 01012345678)"); return; }
+
+    setLoading(true);
+    const res = await fetch("/api/admin/participants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, participants: [{ name: name.trim(), phone: cleanPhone }] }),
+    });
+    const data = await res.json();
+    setLoading(false);
+
+    if (!res.ok) { setError(data.error ?? "등록 실패"); return; }
+    onSuccess();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="font-bold text-lg text-gray-800">참여자 추가</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+            <input
+              className="input-field"
+              type="text"
+              placeholder="홍길동"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
+            <input
+              className="input-field"
+              type="tel"
+              placeholder="01012345678 (하이픈 없이)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+          {error && <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">취소</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1">
+              {loading ? "등록 중..." : "등록하기"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// 엑셀 업로드 모달
+function ExcelUploadModal({
+  password,
+  onClose,
+  onSuccess,
+}: {
+  password: string;
+  onClose: () => void;
+  onSuccess: (count: number) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<Array<{ name: string; phone: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [fileName, setFileName] = useState("");
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target!.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+
+        const parsed = rows
+          .map((row) => {
+            // 열 이름 유연하게 파싱 (이름/성명/Name, 전화번호/핸드폰/Phone 등)
+            const name =
+              row["이름"] || row["성명"] || row["Name"] || row["name"] || "";
+            const phone =
+              row["전화번호"] || row["핸드폰"] || row["휴대폰"] || row["Phone"] || row["phone"] || row["연락처"] || "";
+            return {
+              name: String(name).trim(),
+              phone: String(phone).replace(/-/g, "").trim(),
+            };
+          })
+          .filter((r) => r.name && r.phone);
+
+        if (parsed.length === 0) {
+          setError("이름/전화번호 열을 찾을 수 없어요. 열 이름을 확인해주세요.");
+          return;
+        }
+        setPreview(parsed);
+      } catch {
+        setError("파일을 읽는 중 오류가 발생했어요.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  async function handleUpload() {
+    setError("");
+    setLoading(true);
+    const res = await fetch("/api/admin/participants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, participants: preview }),
+    });
+    const data = await res.json();
+    setLoading(false);
+
+    if (!res.ok) { setError(data.error ?? "업로드 실패"); return; }
+    onSuccess(data.added ?? preview.length);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+          <h2 className="font-bold text-lg text-gray-800">엑셀 일괄 업로드</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* 형식 안내 */}
+          <div className="bg-blue-50 rounded-xl p-4 text-sm text-blue-700 space-y-1">
+            <p className="font-semibold">엑셀 파일 형식</p>
+            <p>첫 번째 행은 열 이름, 아래 열이 있어야 해요:</p>
+            <div className="mt-2 bg-white rounded-lg p-3 font-mono text-xs text-gray-700">
+              <div className="grid grid-cols-2 gap-2">
+                <span className="bg-gray-100 px-2 py-1 rounded">이름</span>
+                <span className="bg-gray-100 px-2 py-1 rounded">전화번호</span>
+                <span className="px-2 py-1 text-gray-500">홍길동</span>
+                <span className="px-2 py-1 text-gray-500">01012345678</span>
+              </div>
+            </div>
+            <p className="text-xs text-blue-500 mt-1">성명·Name, 핸드폰·휴대폰·연락처·Phone도 인식돼요</p>
+          </div>
+
+          {/* 파일 선택 */}
+          <div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={handleFile}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="btn-secondary w-full"
+            >
+              {fileName ? `📄 ${fileName}` : "파일 선택 (.xlsx / .csv)"}
+            </button>
+          </div>
+
+          {/* 미리보기 */}
+          {preview.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">
+                미리보기 — 총 {preview.length}명
+              </p>
+              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">#</th>
+                      <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">이름</th>
+                      <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">전화번호</th>
+                      <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.map((row, i) => {
+                      const valid = row.name && /^0\d{9,10}$/.test(row.phone);
+                      return (
+                        <tr key={i} className="border-t border-gray-100">
+                          <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                          <td className="px-3 py-2 font-medium text-gray-800">{row.name}</td>
+                          <td className="px-3 py-2 text-gray-600">{row.phone}</td>
+                          <td className="px-3 py-2">
+                            {valid ? (
+                              <span className="text-green-600 text-xs font-semibold">✓</span>
+                            ) : (
+                              <span className="text-red-500 text-xs font-semibold">오류</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {preview.some((r) => !/^0\d{9,10}$/.test(r.phone)) && (
+                <p className="text-xs text-red-500 mt-2">오류 항목은 전화번호를 확인해주세요 (예: 01012345678)</p>
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+
+          <div className="flex gap-3">
+            <button onClick={onClose} className="btn-secondary flex-1">취소</button>
+            <button
+              onClick={handleUpload}
+              disabled={loading || preview.length === 0 || preview.some((r) => !/^0\d{9,10}$/.test(r.phone))}
+              className="btn-primary flex-1"
+            >
+              {loading ? "업로드 중..." : `${preview.length}명 등록하기`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
@@ -240,6 +462,9 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Participant | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [toast, setToast] = useState("");
 
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -250,17 +475,23 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => {
-    if (!authed) return;
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3000);
+  }
+
+  async function fetchParticipants() {
     setLoading(true);
-    supabase
+    const { data } = await supabase
       .from("participants")
       .select("*")
-      .order("updated_at", { ascending: false })
-      .then(({ data }) => {
-        setParticipants((data as Participant[]) ?? []);
-        setLoading(false);
-      });
+      .order("updated_at", { ascending: false });
+    setParticipants((data as Participant[]) ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    if (authed) fetchParticipants();
   }, [authed]);
 
   if (!authed) {
@@ -280,12 +511,8 @@ export default function AdminPage() {
               value={password}
               onChange={(e) => { setPassword(e.target.value); setPwError(false); }}
             />
-            {pwError && (
-              <p className="text-red-500 text-sm text-center">비밀번호가 틀렸어요</p>
-            )}
-            <button type="submit" className="btn-primary">
-              로그인
-            </button>
+            {pwError && <p className="text-red-500 text-sm text-center">비밀번호가 틀렸어요</p>}
+            <button type="submit" className="btn-primary">로그인</button>
           </form>
         </div>
       </main>
@@ -294,45 +521,65 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div className="max-w-5xl mx-auto">
+        {/* 헤더 */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">참여자 관리</h1>
             <p className="text-sm text-gray-500 mt-0.5">이지약국 12주 다이어트 캠프</p>
           </div>
-          <div className="bg-green-100 text-green-700 font-semibold px-4 py-2 rounded-full text-sm">
-            총 {participants.length}명
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-green-100 text-green-700 font-semibold px-4 py-2 rounded-full text-sm">
+              총 {participants.length}명
+            </span>
+            <button
+              onClick={() => setShowExcelModal(true)}
+              className="btn-secondary text-sm px-4 py-2"
+            >
+              📊 엑셀 업로드
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="btn-primary text-sm px-4 py-2"
+            >
+              + 참여자 추가
+            </button>
           </div>
         </div>
 
+        {/* 참여자 테이블 */}
         {loading ? (
           <div className="text-center py-20 text-gray-400">불러오는 중...</div>
         ) : participants.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
             <div className="text-4xl mb-3">📭</div>
-            <p>아직 참여자가 없어요</p>
+            <p className="mb-4">아직 참여자가 없어요</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setShowExcelModal(true)} className="btn-secondary">
+                📊 엑셀로 일괄 등록
+              </button>
+              <button onClick={() => setShowAddModal(true)} className="btn-primary">
+                + 한 명씩 추가
+              </button>
+            </div>
           </div>
         ) : (
           <div className="card overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">이름</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">이름 / 전화번호</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">성별 · 나이</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">BMI</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">체질</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">초기점수</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">최종점수</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">감량</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">진행</th>
                 </tr>
               </thead>
               <tbody>
                 {participants.map((p) => (
-                  <ParticipantRow
-                    key={p.id}
-                    p={p}
-                    onClick={() => setSelected(p)}
-                  />
+                  <ParticipantRow key={p.id} p={p} onClick={() => setSelected(p)} />
                 ))}
               </tbody>
             </table>
@@ -340,8 +587,40 @@ export default function AdminPage() {
         )}
       </div>
 
-      {selected && (
-        <ParticipantDetail p={selected} onClose={() => setSelected(null)} />
+      {/* 상세 모달 */}
+      {selected && <ParticipantDetail p={selected} onClose={() => setSelected(null)} />}
+
+      {/* 참여자 추가 모달 */}
+      {showAddModal && (
+        <AddParticipantModal
+          password={password}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchParticipants();
+            showToast("참여자가 등록됐어요!");
+          }}
+        />
+      )}
+
+      {/* 엑셀 업로드 모달 */}
+      {showExcelModal && (
+        <ExcelUploadModal
+          password={password}
+          onClose={() => setShowExcelModal(false)}
+          onSuccess={(count) => {
+            setShowExcelModal(false);
+            fetchParticipants();
+            showToast(`${count}명이 등록됐어요!`);
+          }}
+        />
+      )}
+
+      {/* 토스트 알림 */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-full shadow-lg z-50">
+          {toast}
+        </div>
       )}
     </main>
   );
