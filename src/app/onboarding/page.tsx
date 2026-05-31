@@ -74,7 +74,11 @@ export default function OnboardingPage() {
       setStep(2);
     } else if (step === 2) {
       const clean = phone.replace(/-/g, "");
-      if (phone && !/^0\d{9,10}$/.test(clean)) {
+      if (!clean) {
+        setError("전화번호를 입력해주세요. 알림 수신에 필요해요.");
+        return;
+      }
+      if (!/^0\d{9,10}$/.test(clean)) {
         setError("올바른 전화번호를 입력해주세요. (예: 01012345678)");
         return;
       }
@@ -102,7 +106,7 @@ export default function OnboardingPage() {
           diseases,
           diseaseDetail: diseases ? diseaseDetail : undefined,
           menopauseSymptoms: gender === "여" ? menopause : undefined,
-          phone: phone.replace(/-/g, "") || undefined,
+          phone: phone.replace(/-/g, ""),
         },
       });
       router.push("/survey");
@@ -181,7 +185,7 @@ export default function OnboardingPage() {
               <h3 className="font-bold text-gray-800 mb-3">개인정보 수집 및 이용 동의</h3>
               <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-600 space-y-2 mb-4 max-h-40 overflow-y-auto">
                 <p className="font-semibold text-gray-700">수집 항목</p>
-                <p>닉네임, 성별, 키, 몸무게, 복용 약물, 질환 여부, 연락처 (선택)</p>
+                <p>닉네임, 성별, 키, 몸무게, 복용 약물, 질환 여부, 연락처</p>
                 <p className="font-semibold text-gray-700 mt-2">수집 목적</p>
                 <p>12주 다이어트 캠프 관리, 맞춤 건강 프로그램 제공, 일일 체크인 알림 발송</p>
                 <p className="font-semibold text-gray-700 mt-2">보유 및 이용 기간</p>
@@ -316,7 +320,7 @@ export default function OnboardingPage() {
             <div className="space-y-6">
               <div>
                 <label className="label-text">카카오톡 알림 수신 번호</label>
-                <p className="text-xs text-gray-400 mb-2">매일 영양제·운동 알림을 드려요 (선택)</p>
+                <p className="text-xs text-gray-400 mb-2">매일 영양제·운동 알림 수신에 필요해요 (필수)</p>
                 <input
                   className="input-field"
                   type="tel"
