@@ -32,15 +32,19 @@ export default function OnboardingPage() {
   useEffect(() => {
     const data = loadParticipant();
     if (data?.basicInfo?.name) {
+      // 기존 데이터가 있어도 step 0(개인정보 동의)은 항상 표시
       setInfo(data.basicInfo);
       setGender(data.basicInfo.gender ?? "여");
-      setStep(1);
+      setHeight(String(data.basicInfo.height || ""));
+      setWeight(String(data.basicInfo.weight || ""));
+      setPhone(data.basicInfo.phone ?? "");
       return;
     }
     const inviteName = localStorage.getItem("invite_name");
     const invitePhone = localStorage.getItem("invite_phone");
     if (inviteName) {
       setInfo({ name: inviteName, phone: invitePhone ?? undefined } as BasicInfo);
+      if (invitePhone) setPhone(invitePhone);
       return;
     }
     router.push("/");
@@ -149,7 +153,7 @@ export default function OnboardingPage() {
               <div className="text-center mb-4">
                 <span className="text-3xl">🌿</span>
                 <h2 className="font-bold text-xl text-gray-800 mt-2">
-                  이지약국 12주 다이어트 캠프
+                  보라매직 12주 다이어트 캠프
                 </h2>
                 <p className="text-sm text-green-700 font-medium mt-1">시작 전 안내사항</p>
               </div>
