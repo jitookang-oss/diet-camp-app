@@ -10,8 +10,8 @@ export const WEEKLY_MISSIONS: Mission[] = [
   {
     week: 1,
     icon: "☕",
-    title: "커피는 하루 1잔, 식후 2시간 후에",
-    detail: "카페인이 교감신경을 자극해 지방 저장 호르몬을 분비시켜요. 식후 2시간 후 아메리카노 1잔만 허용!",
+    title: "커피는 하루 1잔, 아침 식후 2시간 후에",
+    detail: "카페인이 교감신경을 자극해 지방 저장 호르몬을 분비시켜요. 아침 식후 2시간 후 아메리카노 1잔만! 가능하면 카페인을 절반으로 줄여보세요.",
     isConsultationWeek: true,
   },
   {
