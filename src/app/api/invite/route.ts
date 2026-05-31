@@ -1,0 +1,28 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabase } from "@/lib/supabase-server";
+
+export async function GET(request: NextRequest) {
+  const token = new URL(request.url).searchParams.get("token");
+
+  if (!token) {
+    return NextResponse.json({ error: "토큰이 없습니다." }, { status: 400 });
+  }
+
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("participants")
+    .select("name, phone, invite_token, is_onboarded")
+    .eq("invite_token", token)
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: "유효하지 않은 초대 링크입니다." }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    name: data.name,
+    phone: data.phone,
+    isOnboarded: data.is_onboarded,
+  });
+}

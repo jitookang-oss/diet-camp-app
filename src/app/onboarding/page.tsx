@@ -16,7 +16,6 @@ const MENOPAUSE_ITEMS = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [agreed, setAgreed] = useState(false);
   const [info, setInfo] = useState<Partial<BasicInfo>>({});
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
@@ -28,15 +27,23 @@ export default function OnboardingPage() {
   const [menopause, setMenopause] = useState<string[]>([]);
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     const data = loadParticipant();
-    if (!data?.basicInfo?.name) {
-      router.push("/");
+    if (data?.basicInfo?.name) {
+      setInfo(data.basicInfo);
+      setGender(data.basicInfo.gender ?? "여");
+      setStep(1);
       return;
     }
-    setInfo(data.basicInfo);
-    setGender(data.basicInfo.gender ?? "여");
+    const inviteName = localStorage.getItem("invite_name");
+    const invitePhone = localStorage.getItem("invite_phone");
+    if (inviteName) {
+      setInfo({ name: inviteName, phone: invitePhone ?? undefined } as BasicInfo);
+      return;
+    }
+    router.push("/");
   }, [router]);
 
   const bmiResult =
@@ -47,7 +54,13 @@ export default function OnboardingPage() {
   function handleNext() {
     setError("");
 
-    if (step === 1) {
+    if (step === 0) {
+      if (!agreed) {
+        setError("개인정보 수집 및 이용에 동의해주세요.");
+        return;
+      }
+      setStep(1);
+    } else if (step === 1) {
       if (!height || !weight) {
         setError("키와 몸무게를 입력해주세요.");
         return;
@@ -67,7 +80,6 @@ export default function OnboardingPage() {
       }
       setStep(3);
     } else if (step === 3) {
-      // 완료
       const h = parseFloat(height);
       const w = parseFloat(weight);
       const { bmi, category } = calculateBMI(w, h);
@@ -106,7 +118,8 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-10">
       <div className="w-full max-w-md">
-        {/* 진행 상태 (step 1~3에서만 표시) */}
+
+        {/* 진행 상태 (step 0은 표시 안 함) */}
         {step > 0 && (
           <div className="mb-8">
             <div className="flex justify-between items-center mb-2">
@@ -116,7 +129,10 @@ export default function OnboardingPage() {
               </span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${(step / 3) * 100}%` }} />
+              <div
+                className="progress-fill"
+                style={{ width: `${(step / 3) * 100}%` }}
+              />
             </div>
           </div>
         )}
@@ -124,45 +140,57 @@ export default function OnboardingPage() {
         {/* STEP 0: 안내 및 개인정보 동의 */}
         {step === 0 && (
           <div className="space-y-4">
-            {/* 1회차 시즌 안내 */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-              <p className="text-sm font-bold text-amber-800 mb-2">📢 첫 번째 시즌 안내</p>
-              <p className="text-xs text-amber-700 leading-relaxed">
-                본 다이어트 캠프는 <strong>1회차 운영</strong>으로 아직 미흡한 부분이 있을 수 있어요.
-                불편한 점은 인스타그램 DM으로 편하게 알려주시면 더 나은 캠프를 만들겠습니다. 😊
+            {/* 서비스 안내 */}
+            <div className="card p-6">
+              <div className="text-center mb-4">
+                <span className="text-3xl">🌿</span>
+                <h2 className="font-bold text-xl text-gray-800 mt-2">
+                  이지약국 12주 다이어트 캠프
+                </h2>
+                <p className="text-sm text-green-700 font-medium mt-1">시작 전 안내사항</p>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-2 mb-4">
+                <p className="font-semibold">📢 참여자분들께 안내드립니다</p>
+                <p>
+                  본 다이어트 캠프는 <strong>1회차 운영</strong>으로, 아직 미흡하고
+                  부족한 부분이 있을 수 있습니다. 넓은 마음으로 양해 부탁드립니다.
+                </p>
+                <p>
+                  특히 <strong>모바일 페이지</strong>에서 오류가 발생할 수 있으며,
+                  불편하신 점은 언제든지 아래 채널로 문의해주세요.
+                </p>
+                <a
+                  href="https://ig.me/m/bora__magic"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 mt-2 border border-amber-200 font-semibold text-amber-900"
+                >
+                  <span>📸</span>
+                  <span>@보라매직 인스타그램 DM</span>
+                </a>
+              </div>
+
+              <p className="text-xs text-gray-400 text-center">
+                CS에 최선을 다하겠습니다 🙏
               </p>
-              <a
-                href="https://ig.me/m/bora__magic"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-3 text-xs font-bold text-amber-800 underline"
-              >
-                📩 @bora__magic 인스타그램 DM 바로가기
-              </a>
             </div>
 
             {/* 개인정보 동의 */}
-            <div className="card p-5">
-              <h2 className="font-bold text-lg text-gray-800 mb-1">개인정보 수집·이용 동의</h2>
-              <p className="text-xs text-gray-500 mb-3">캠프 참여를 위해 아래 내용을 확인해주세요</p>
-
-              <div className="bg-gray-50 rounded-xl p-4 h-44 overflow-y-auto text-xs text-gray-600 leading-relaxed space-y-3 mb-4">
-                <div>
-                  <p className="font-bold text-gray-700 mb-0.5">수집하는 정보</p>
-                  <p>닉네임, 생년월일, 성별, 키, 체중, 건강 상태(복용약·질환·갱년기 증상), 연락처(선택), 설문 응답 데이터</p>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-700 mb-0.5">수집·이용 목적</p>
-                  <p>12주 다이어트 캠프 맞춤 프로그램 제공, 카카오톡 알림 발송, 3M 체질 분석 결과 제공 및 캠프 관리</p>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-700 mb-0.5">보유 기간</p>
-                  <p>캠프 종료 후 3개월까지 보관 후 파기</p>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-700 mb-0.5">동의 거부 권리</p>
-                  <p>동의하지 않을 권리가 있으나, 거부 시 캠프 참여가 제한될 수 있습니다.</p>
-                </div>
+            <div className="card p-6">
+              <h3 className="font-bold text-gray-800 mb-3">개인정보 수집 및 이용 동의</h3>
+              <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-600 space-y-2 mb-4 max-h-40 overflow-y-auto">
+                <p className="font-semibold text-gray-700">수집 항목</p>
+                <p>닉네임, 성별, 키, 몸무게, 복용 약물, 질환 여부, 연락처 (선택)</p>
+                <p className="font-semibold text-gray-700 mt-2">수집 목적</p>
+                <p>12주 다이어트 캠프 관리, 맞춤 건강 프로그램 제공, 일일 체크인 알림 발송</p>
+                <p className="font-semibold text-gray-700 mt-2">보유 및 이용 기간</p>
+                <p>캠프 종료 후 6개월</p>
+                <p className="font-semibold text-gray-700 mt-2">제3자 제공</p>
+                <p>제공하지 않음</p>
+                <p className="text-gray-400 mt-2">
+                  위 동의를 거부할 권리가 있으나, 거부 시 캠프 참여가 제한될 수 있습니다.
+                </p>
               </div>
 
               <label className="flex items-start gap-3 cursor-pointer">
@@ -170,21 +198,23 @@ export default function OnboardingPage() {
                   type="checkbox"
                   checked={agreed}
                   onChange={(e) => setAgreed(e.target.checked)}
-                  className="mt-0.5 w-5 h-5 rounded accent-green-600 flex-shrink-0"
+                  className="mt-0.5 w-5 h-5 accent-green-600 flex-shrink-0"
                 />
-                <span className="text-sm text-gray-700 leading-snug">
-                  위 개인정보 수집·이용에 동의합니다 <span className="text-red-500">(필수)</span>
+                <span className="text-sm text-gray-700 leading-relaxed">
+                  개인정보 수집 및 이용에 <strong>동의합니다</strong>
                 </span>
               </label>
-            </div>
 
-            <button
-              onClick={() => { if (agreed) setStep(1); }}
-              disabled={!agreed}
-              className={`btn-primary ${!agreed ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              동의하고 시작하기 →
-            </button>
+              {error && (
+                <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg mt-3">
+                  {error}
+                </p>
+              )}
+
+              <button onClick={handleNext} className="btn-primary mt-4">
+                동의하고 시작하기 →
+              </button>
+            </div>
           </div>
         )}
 
@@ -237,7 +267,7 @@ export default function OnboardingPage() {
               </div>
 
               {bmiResult && (
-                <div className="bg-green-50 rounded-xl p-4 space-y-2">
+                <div className="bg-green-50 rounded-12 p-4 rounded-xl space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">목표 몸무게</span>
                     <span className="font-bold text-green-700">
@@ -406,7 +436,7 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* 뒤로가기 (step 2~3에서만) */}
+        {/* 뒤로가기 */}
         {step > 1 && (
           <button
             onClick={() => setStep((s) => s - 1)}

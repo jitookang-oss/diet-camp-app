@@ -79,11 +79,16 @@ export function calculateBMI(weight: number, height: number) {
 }
 
 async function syncToSupabase(data: ParticipantData) {
-  if (!data.basicInfo?.name || !data.basicInfo?.birthDate) return;
+  if (!data.basicInfo?.name) return;
+
+  const invitePhone = typeof window !== "undefined"
+    ? localStorage.getItem("invite_phone")
+    : null;
+  const phone = data.basicInfo.phone ?? invitePhone ?? null;
 
   const row = {
     name: data.basicInfo.name,
-    birth_date: data.basicInfo.birthDate,
+    birth_date: data.basicInfo.birthDate ?? null,
     age: data.basicInfo.age,
     gender: data.basicInfo.gender,
     height: data.basicInfo.height,
@@ -96,17 +101,27 @@ async function syncToSupabase(data: ParticipantData) {
     diseases: data.basicInfo.diseases,
     disease_detail: data.basicInfo.diseaseDetail ?? null,
     menopause_symptoms: data.basicInfo.menopauseSymptoms ?? null,
-    phone: data.basicInfo.phone ?? null,
+    phone,
     week1_answers: data.week1Answers ?? null,
     week1_scores: data.week1Scores ?? null,
     body_type: data.bodyType ?? null,
     weekly_records: data.weeklyRecords ?? [],
     week12_answers: data.week12Answers ?? null,
     week12_scores: data.week12Scores ?? null,
+    is_onboarded: true,
     updated_at: new Date().toISOString(),
   };
 
-  await supabase
-    .from("participants")
-    .upsert(row, { onConflict: "name,birth_date" });
+  if (phone) {
+    // 초대 링크로 진입한 경우: phone 기준으로 업데이트
+    await supabase
+      .from("participants")
+      .update(row)
+      .eq("phone", phone);
+  } else {
+    // 기존 방식 (phone 없는 경우): name 기준 upsert
+    await supabase
+      .from("participants")
+      .upsert({ ...row, phone: null }, { onConflict: "name" });
+  }
 }
