@@ -13,6 +13,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "알림톡 템플릿 미설정" }, { status: 503 });
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+  if (today < "2026-06-08") {
+    return NextResponse.json({ skipped: true, reason: "알림톡 발송 시작일 전입니다 (6/8부터)" });
+  }
+
   const supabase = getSupabase();
   const { data: participants, error } = await supabase
     .from("participants")
@@ -22,7 +27,6 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { campWeek } = getCampDayInfo();
-  const today = new Date().toISOString().slice(0, 10);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://diet-camp-app.vercel.app";
 
   const results = [];
