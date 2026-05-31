@@ -161,7 +161,7 @@ export default function OnboardingPage() {
                   불편하신 점은 언제든지 아래 채널로 문의해주세요.
                 </p>
                 <a
-                  href="https://www.instagram.com/boramagic"
+                  href="https://ig.me/m/bora__magic"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 mt-2 border border-amber-200 font-semibold text-amber-900"
