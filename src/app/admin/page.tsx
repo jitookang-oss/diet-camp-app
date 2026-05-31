@@ -565,6 +565,7 @@ const CHECKIN_TYPES = [
   { key: "supplement", label: "영양제", icon: "💊" },
   { key: "lunch_walk", label: "점심 걷기", icon: "🚶" },
   { key: "evening_exercise", label: "저녁 운동", icon: "🌙" },
+  { key: "mission", label: "주간 미션", icon: "🎯" },
 ] as const;
 
 interface CheckinRecord {

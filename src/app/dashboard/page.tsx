@@ -18,12 +18,19 @@ import {
   ReferenceLine,
 } from "recharts";
 
+function getKSTDateStr() {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<ParticipantData | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showBookmarkTip, setShowBookmarkTip] = useState(false);
   const [showMissionModal, setShowMissionModal] = useState(false);
+  const [todayMissionChecked, setTodayMissionChecked] = useState(false);
+  const [missionChecking, setMissionChecking] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -34,7 +41,31 @@ export default function DashboardPage() {
     }
     setData(d);
     if ((d.weeklyRecords?.length ?? 0) === 0) setShowBookmarkTip(true);
+
+    // 오늘 미션 체크 여부 조회
+    const phone = d.basicInfo.phone;
+    if (phone) {
+      const today = getKSTDateStr();
+      fetch(`/api/mission-check?phone=${encodeURIComponent(phone)}&date=${today}`)
+        .then((r) => r.json())
+        .then((res) => { if (res.checked) setTodayMissionChecked(true); })
+        .catch(() => {});
+    }
   }, [router]);
+
+  async function handleTodayMissionCheck() {
+    if (!data?.basicInfo.phone || missionChecking || todayMissionChecked) return;
+    setMissionChecking(true);
+    const today = getKSTDateStr();
+    const res = await fetch("/api/mission-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: data.basicInfo.phone, date: today }),
+    });
+    const json = await res.json();
+    if (json.success || json.already) setTodayMissionChecked(true);
+    setMissionChecking(false);
+  }
 
   if (!data) return null;
 
@@ -135,6 +166,30 @@ export default function DashboardPage() {
               <span className="text-green-500 text-sm flex-shrink-0 mt-0.5">→</span>
             </div>
           </button>
+        )}
+
+        {/* 오늘 미션 체크 */}
+        {campWeek > 0 && data.basicInfo.phone && (
+          <div className={`card p-4 flex items-center gap-4 ${todayMissionChecked ? "bg-green-50 border-green-200" : ""}`}>
+            <div className="text-2xl">{todayMissionChecked ? "✅" : "🎯"}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-800">
+                {todayMissionChecked ? "오늘 미션 완료!" : "오늘 미션 수행했나요?"}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {todayMissionChecked ? "오늘도 잘 하셨어요 💪" : "매일 체크하면 관리자가 확인해요"}
+              </p>
+            </div>
+            {!todayMissionChecked && (
+              <button
+                onClick={handleTodayMissionCheck}
+                disabled={missionChecking}
+                className="flex-shrink-0 px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {missionChecking ? "..." : "완료!"}
+              </button>
+            )}
+          </div>
         )}
 
         {/* 요약 카드 */}
