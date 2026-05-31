@@ -227,10 +227,10 @@ function ParticipantDetail({
 
           {(p.week1_scores || p.week12_scores) && (
             <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">3M 점수 비교</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">대사관리 점수 비교</h3>
               <div className="grid grid-cols-2 gap-3">
                 {(["meal", "mobility", "mentation", "total"] as const).map((key) => {
-                  const label = key === "total" ? "종합" : key === "meal" ? "식사(Meal)" : key === "mobility" ? "활동(Mobility)" : "마음(Mentation)";
+                  const label = key === "total" ? "종합" : key === "meal" ? "음식" : key === "mobility" ? "활동" : "멘탈";
                   const before = p.week1_scores?.[key] ?? null;
                   const after = p.week12_scores?.[key] ?? null;
                   return (

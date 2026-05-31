@@ -52,9 +52,9 @@ export default function PdfReport({ data, scores, isWeek12 }: Props) {
       {/* 헤더 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 36 }}>
         <div>
-          <p style={{ fontSize: 11, color: "#6ee7b7", letterSpacing: 2, marginBottom: 6 }}>이지약국 12주 다이어트 캠프</p>
+          <p style={{ fontSize: 11, color: "#6ee7b7", letterSpacing: 2, marginBottom: 6 }}>보라매직 12주 다이어트 캠프</p>
           <h1 style={{ fontSize: 26, fontWeight: 900, margin: 0 }}>
-            {data.basicInfo.name}님의 3M 리포트
+            {data.basicInfo.name}님의 대사관리 리포트
           </h1>
           <p style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
             {isWeek12 ? "12주차 최종 결과" : "1주차 체질 분석 결과"} · {today}
@@ -84,10 +84,10 @@ export default function PdfReport({ data, scores, isWeek12 }: Props) {
 
       {/* 3M 점수 */}
       <div style={{ background: "#122b1c", borderRadius: 16, padding: "20px 24px", marginBottom: 24 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: "#6ee7b7", marginBottom: 16 }}>3M 파트 점수</h2>
-        <Bar label="🍽️ Meal · 식사 습관" score={scores.meal} color="#f59e0b" />
-        <Bar label="🚶 Mobility · 활동 대사" score={scores.mobility} color="#3b82f6" />
-        <Bar label="🧘 Mentation · 마음 관리" score={scores.mentation} color="#8b5cf6" />
+        <h2 style={{ fontSize: 14, fontWeight: 700, color: "#6ee7b7", marginBottom: 16 }}>대사관리 파트 점수</h2>
+        <Bar label="🍽️ 음식 관리" score={scores.meal} color="#f59e0b" />
+        <Bar label="🚶 활동 관리" score={scores.mobility} color="#3b82f6" />
+        <Bar label="🧘 멘탈 관리" score={scores.mentation} color="#8b5cf6" />
       </div>
 
       {/* 신체 정보 */}
@@ -114,9 +114,9 @@ export default function PdfReport({ data, scores, isWeek12 }: Props) {
           <h2 style={{ fontSize: 14, fontWeight: 700, color: "#6ee7b7", marginBottom: 16 }}>1주차 → 12주차 변화</h2>
           {(
             [
-              ["🍽️ Meal", data.week1Scores.meal, scores.meal],
-              ["🚶 Mobility", data.week1Scores.mobility, scores.mobility],
-              ["🧘 Mentation", data.week1Scores.mentation, scores.mentation],
+              ["🍽️ 음식", data.week1Scores.meal, scores.meal],
+              ["🚶 활동", data.week1Scores.mobility, scores.mobility],
+              ["🧘 멘탈", data.week1Scores.mentation, scores.mentation],
             ] as [string, number, number][]
           ).map(([label, before, after]) => {
             const diff = after - before;

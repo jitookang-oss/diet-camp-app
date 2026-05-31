@@ -183,7 +183,7 @@ function ResultContent() {
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = (canvas.height * pageW) / canvas.width;
       pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
-      pdf.save(`${data.basicInfo.name}_3M리포트_${isWeek12 ? "12주차" : "1주차"}.pdf`);
+      pdf.save(`${data.basicInfo.name}_대사관리리포트_${isWeek12 ? "12주차" : "1주차"}.pdf`);
     } catch (e) {
       console.error(e);
       alert("PDF 저장 중 오류가 발생했어요. 다시 시도해주세요.");
@@ -196,9 +196,9 @@ function ResultContent() {
   const info = bodyTypeInfo[bodyType];
 
   const radarData = [
-    { subject: "Meal", value: scores.meal },
-    { subject: "Mobility", value: scores.mobility },
-    { subject: "Mentation", value: scores.mentation },
+    { subject: "음식", value: scores.meal },
+    { subject: "활동", value: scores.mobility },
+    { subject: "멘탈", value: scores.mentation },
   ];
 
   const colorMap: Record<string, string> = {
@@ -219,7 +219,7 @@ function ResultContent() {
             {isWeek12 ? "12주차 최종 결과" : "1주차 체질 분석 결과"}
           </p>
           <h1 className="text-2xl font-bold text-gray-900">
-            {data.basicInfo.name}님의 3M 리포트
+            {data.basicInfo.name}님의 대사관리 리포트
           </h1>
         </div>
 
@@ -250,7 +250,7 @@ function ResultContent() {
           <div className="flex items-center justify-between mb-5 pb-5 border-b border-gray-100">
             <div>
               <p className="text-sm text-gray-500 mb-0.5">종합 점수</p>
-              <p className="text-xs text-gray-400">3M 파트 평균</p>
+              <p className="text-xs text-gray-400">대사관리 파트 평균</p>
             </div>
             <div className="text-right">
               <span className="text-5xl font-black text-green-700">
@@ -262,9 +262,9 @@ function ResultContent() {
 
           {/* 3M 상세 점수 */}
           <div className="space-y-5">
-            <ScoreBar label="🍽️ Meal · 식사 습관" score={scores.meal} color="#f59e0b" />
-            <ScoreBar label="🚶 Mobility · 활동 대사" score={scores.mobility} color="#3b82f6" />
-            <ScoreBar label="🧘 Mentation · 마음 관리" score={scores.mentation} color="#8b5cf6" />
+            <ScoreBar label="🍽️ 음식 관리" score={scores.meal} color="#f59e0b" />
+            <ScoreBar label="🚶 활동 관리" score={scores.mobility} color="#3b82f6" />
+            <ScoreBar label="🧘 멘탈 관리" score={scores.mentation} color="#8b5cf6" />
           </div>
         </div>
 
@@ -321,13 +321,9 @@ function ResultContent() {
             <div className="space-y-3">
               {(
                 [
-                  ["Meal", data.week1Scores.meal, scores.meal],
-                  ["Mobility", data.week1Scores.mobility, scores.mobility],
-                  [
-                    "Mentation",
-                    data.week1Scores.mentation,
-                    scores.mentation,
-                  ],
+                  ["🍽️ 음식", data.week1Scores.meal, scores.meal],
+                  ["🚶 활동", data.week1Scores.mobility, scores.mobility],
+                  ["🧘 멘탈", data.week1Scores.mentation, scores.mentation],
                 ] as [string, number, number][]
               ).map(([label, before, after]) => {
                 const diff = after - before;

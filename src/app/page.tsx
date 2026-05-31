@@ -134,7 +134,7 @@ export default function HomePage() {
             12주<br />다이어트 캠프
           </h1>
           <p className="text-gray-500 text-sm">
-            3M 전략 기반 · 대사 체질 분석<br />
+            대사관리 스코어 기반 · 대사 체질 분석<br />
             개인 맞춤 웰니스 프로그램
           </p>
         </div>
@@ -172,9 +172,9 @@ export default function HomePage() {
         {/* 3M 아이콘 */}
         <div className="mt-6 grid grid-cols-3 gap-3 text-center">
           {[
-            { icon: "🍽️", label: "Meal", desc: "식사 습관" },
-            { icon: "🚶", label: "Mobility", desc: "활동 대사" },
-            { icon: "🧘", label: "Mentation", desc: "마음 관리" },
+            { icon: "🍽️", label: "음식", desc: "식사 습관" },
+            { icon: "🚶", label: "활동", desc: "활동 대사" },
+            { icon: "🧘", label: "멘탈", desc: "마음 관리" },
           ].map((item) => (
             <div key={item.label} className="card p-3">
               <div className="text-2xl mb-1">{item.icon}</div>

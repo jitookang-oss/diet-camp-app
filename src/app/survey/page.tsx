@@ -57,7 +57,7 @@ const QUESTIONS = [
   // PART 1: Meal (8문항)
   {
     id: "q1",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "한 끼 식사를 마치는 데 보통 얼마나 걸리나요?",
     type: "radio",
     star: true,
@@ -65,7 +65,7 @@ const QUESTIONS = [
   },
   {
     id: "q2",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "식사할 때 채소·단백질을 먼저 먹나요?",
     hint: "채소나 단백질로 시작하면 포만감과 식사 속도 조절에 도움이 돼요",
     type: "radio",
@@ -74,7 +74,7 @@ const QUESTIONS = [
   },
   {
     id: "q3",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "식사마다 단백질을 신경써서 먹나요?",
     type: "radio",
     star: false,
@@ -82,7 +82,7 @@ const QUESTIONS = [
   },
   {
     id: "q4",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "채소를 매 끼니 챙겨 먹나요?",
     type: "radio",
     star: false,
@@ -90,7 +90,7 @@ const QUESTIONS = [
   },
   {
     id: "q5",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "초가공식품(과자, 햄버거, 햄 등)을 주 몇 회 먹나요?",
     type: "radio",
     star: true,
@@ -98,7 +98,7 @@ const QUESTIONS = [
   },
   {
     id: "q6",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "하루 물 섭취량은?",
     type: "radio",
     star: false,
@@ -106,7 +106,7 @@ const QUESTIONS = [
   },
   {
     id: "q7",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "야식을 먹는 빈도는?",
     type: "radio",
     star: true,
@@ -114,7 +114,7 @@ const QUESTIONS = [
   },
   {
     id: "q8",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "식사를 거른 날이 얼마나 되나요?",
     type: "radio",
     star: false,
@@ -122,7 +122,7 @@ const QUESTIONS = [
   },
   {
     id: "q9",
-    part: "Meal 🍽️",
+    part: "음식 🍽️",
     text: "디저트나 간식을 찾아서 먹은 횟수는?",
     type: "radio",
     star: false,
@@ -131,7 +131,7 @@ const QUESTIONS = [
   // PART 2: Mobility (6문항)
   {
     id: "q10",
-    part: "Mobility 🚶",
+    part: "활동 🚶",
     text: "식사 후 바로 앉거나 눕는 편인가요?",
     type: "radio",
     star: true,
@@ -139,7 +139,7 @@ const QUESTIONS = [
   },
   {
     id: "q11",
-    part: "Mobility 🚶",
+    part: "활동 🚶",
     text: "식후 걷기를 얼마나 자주 실천하나요?",
     type: "radio",
     star: true,
@@ -147,7 +147,7 @@ const QUESTIONS = [
   },
   {
     id: "q12",
-    part: "Mobility 🚶",
+    part: "활동 🚶",
     text: "하루 중 앉아 있는 시간은 총 얼마나 되나요?",
     type: "radio",
     star: true,
@@ -155,7 +155,7 @@ const QUESTIONS = [
   },
   {
     id: "q14",
-    part: "Mobility 🚶",
+    part: "활동 🚶",
     text: "주당 근력운동 횟수는?",
     type: "radio",
     star: false,
@@ -163,7 +163,7 @@ const QUESTIONS = [
   },
   {
     id: "q16",
-    part: "Mobility 🚶",
+    part: "활동 🚶",
     text: "식사 후 졸음이 오는 편인가요?",
     type: "radio",
     star: false,
@@ -171,7 +171,7 @@ const QUESTIONS = [
   },
   {
     id: "q17",
-    part: "Mobility 🚶",
+    part: "활동 🚶",
     text: "조금만 움직여도 쉽게 피로한 편인가요?",
     type: "radio",
     star: false,
@@ -180,7 +180,7 @@ const QUESTIONS = [
   // PART 3: Mentation (6문항)
   {
     id: "q18",
-    part: "Mentation 🧘",
+    part: "멘탈 🧘",
     text: "하루 평균 수면 시간은?",
     type: "radio",
     star: true,
@@ -188,14 +188,14 @@ const QUESTIONS = [
   },
   {
     id: "q20",
-    part: "Mentation 🧘",
+    part: "멘탈 🧘",
     text: "최근 한 달 스트레스 수준은?",
     type: "slider",
     star: true,
   },
   {
     id: "q22",
-    part: "Mentation 🧘",
+    part: "멘탈 🧘",
     text: "스트레스 받은 날, 실제로 과식하거나 배달을 시켰나요?",
     type: "radio",
     star: true,
@@ -203,7 +203,7 @@ const QUESTIONS = [
   },
   {
     id: "q23",
-    part: "Mentation 🧘",
+    part: "멘탈 🧘",
     text: "참다가 한꺼번에 폭식하는 경우가 있나요?",
     type: "radio",
     star: false,
@@ -211,7 +211,7 @@ const QUESTIONS = [
   },
   {
     id: "q25",
-    part: "Mentation 🧘",
+    part: "멘탈 🧘",
     text: "기분이 우울할 때 음식으로 위안을 받나요?",
     type: "radio",
     star: false,

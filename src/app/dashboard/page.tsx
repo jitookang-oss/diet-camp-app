@@ -68,12 +68,12 @@ export default function DashboardPage() {
     ...(weeklyRecords ?? []).map((r) => ({ week: `${r.week}주`, weight: r.weight })),
   ];
   const scoreData = [
-    { week: "1주", Meal: week1Scores?.meal, Mobility: week1Scores?.mobility, Mentation: week1Scores?.mentation },
+    { week: "1주", 음식: week1Scores?.meal, 활동: week1Scores?.mobility, 멘탈: week1Scores?.mentation },
     ...(weeklyRecords ?? []).map((r) => ({
       week: `${r.week}주`,
-      Meal: r.scores.meal,
-      Mobility: r.scores.mobility,
-      Mentation: r.scores.mentation,
+      음식: r.scores.meal,
+      활동: r.scores.mobility,
+      멘탈: r.scores.mentation,
     })),
   ];
 
@@ -195,7 +195,7 @@ export default function DashboardPage() {
 
         {/* 3M 스코어 그래프 */}
         <div className="card p-5">
-          <h3 className="font-bold text-gray-800 mb-4">3M 스코어 변화</h3>
+          <h3 className="font-bold text-gray-800 mb-4">대사관리 스코어 변화</h3>
           {mounted && scoreData.length >= 2 ? (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={scoreData}>
@@ -204,9 +204,9 @@ export default function DashboardPage() {
                 <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} width={35} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="Meal" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="Mobility" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="Mentation" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="음식" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="활동" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="멘탈" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (

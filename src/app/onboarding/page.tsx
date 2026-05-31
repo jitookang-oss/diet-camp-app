@@ -399,7 +399,7 @@ export default function OnboardingPage() {
             <p className="text-sm text-gray-500 mb-6">
               {gender === "여"
                 ? "해당되는 항목을 모두 선택해주세요 (없으면 바로 다음)"
-                : "이제 3M 설문을 시작할게요"}
+                : "이제 다이어트 시작 전 설문을 시작할게요"}
             </p>
 
             {gender === "여" && (
@@ -431,7 +431,7 @@ export default function OnboardingPage() {
             )}
 
             <button onClick={handleNext} className="btn-primary">
-              설문 시작하기 →
+              다이어트 시작 전 설문 시작하기 →
             </button>
           </div>
         )}
