@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loadParticipant, getCurrentWeek } from "@/lib/store";
+import { isCheckWeekUnlocked } from "@/lib/missions";
 
 export default function WeeklyPage() {
   const router = useRouter();
@@ -18,9 +19,16 @@ export default function WeeklyPage() {
 
     if (week > 11) {
       router.push("/survey?week=12");
-    } else {
-      router.push(`/survey?week=${week}`);
+      return;
     }
+
+    // 아직 해당 주차 기록 날짜가 아니면 대시보드로 돌려보냄
+    if (!isCheckWeekUnlocked(week)) {
+      router.push("/dashboard");
+      return;
+    }
+
+    router.push(`/survey?week=${week}`);
   }, [router]);
 
   return (

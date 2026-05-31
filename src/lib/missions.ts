@@ -92,6 +92,21 @@ export interface CampDayInfo {
   currentMission: Mission | null;
 }
 
+// 주차별 체크인 잠금 해제 날짜 (2주차=6/7, 3주차=6/14, ...)
+export function getWeekCheckUnlockDate(checkWeek: number): Date {
+  const date = new Date(CAMP_START_DATE);
+  date.setDate(date.getDate() + (checkWeek - 2) * 7 + 6);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+export function isCheckWeekUnlocked(checkWeek: number): boolean {
+  if (checkWeek >= 12) return true;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today >= getWeekCheckUnlockDate(checkWeek);
+}
+
 export function getCampDayInfo(): CampDayInfo {
   const today = new Date();
   today.setHours(0, 0, 0, 0);

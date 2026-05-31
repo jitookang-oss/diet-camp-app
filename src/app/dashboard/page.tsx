@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadParticipant, ParticipantData, getCurrentWeek } from "@/lib/store";
 import { bodyTypeInfo } from "@/lib/scoring";
+import { getWeekCheckUnlockDate, isCheckWeekUnlocked } from "@/lib/missions";
 import {
   LineChart,
   Line,
@@ -19,14 +20,21 @@ import {
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<ParticipantData | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [showBookmarkTip, setShowBookmarkTip] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const d = loadParticipant();
     if (!d?.week1Scores) {
       router.push("/");
       return;
     }
     setData(d);
+    // 첫 방문 시 (주차 기록 없을 때) 즐겨찾기 안내 표시
+    if ((d.weeklyRecords?.length ?? 0) === 0) {
+      setShowBookmarkTip(true);
+    }
   }, [router]);
 
   if (!data) return null;
@@ -34,6 +42,16 @@ export default function DashboardPage() {
   const { basicInfo, week1Scores, weeklyRecords, bodyType } = data;
   const currentWeek = getCurrentWeek(data);
   const typeInfo = bodyType ? bodyTypeInfo[bodyType] : null;
+
+  // 주차별 잠금 상태
+  const weekLocked = currentWeek <= 11 && !isCheckWeekUnlocked(currentWeek);
+  const unlockDate = currentWeek <= 11 ? getWeekCheckUnlockDate(currentWeek) : null;
+  const unlockLabel = unlockDate
+    ? `${unlockDate.getMonth() + 1}/${unlockDate.getDate()}부터 가능`
+    : "";
+
+  // 버튼 라벨: 2주차 → "1주차 기록하기", 3주차 → "2주차 기록하기", ...
+  const recordWeekLabel = currentWeek <= 11 ? `${currentWeek - 1}주차 기록하기` : "12주차 최종 설문";
 
   // 몸무게 그래프 데이터
   const weightData = [
@@ -93,6 +111,32 @@ export default function DashboardPage() {
           </p>
         </div>
 
+        {/* 즐겨찾기 안내 (첫 방문) */}
+        {showBookmarkTip && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-bold text-amber-800 mb-1">
+                  📌 이 페이지를 즐겨찾기에 추가하세요!
+                </p>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  다음에도 이 화면에서 기록을 이어갈 수 있어요.<br />
+                  브라우저 주소창 옆 ☆ 아이콘을 눌러 저장해두세요.
+                </p>
+                <p className="text-xs text-amber-600 mt-1 font-medium break-all">
+                  🔗 {typeof window !== "undefined" ? window.location.origin : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBookmarkTip(false)}
+                className="text-amber-400 hover:text-amber-600 text-lg flex-shrink-0 leading-none"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 요약 카드 */}
         <div className="grid grid-cols-2 gap-3">
           <div className="card p-4 text-center">
@@ -143,7 +187,7 @@ export default function DashboardPage() {
         {/* 몸무게 그래프 */}
         <div className="card p-5">
           <h3 className="font-bold text-gray-800 mb-4">몸무게 변화</h3>
-          {weightData.length >= 2 ? (
+          {mounted && weightData.length >= 2 ? (
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={weightData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -184,7 +228,7 @@ export default function DashboardPage() {
         {/* 3M 스코어 그래프 */}
         <div className="card p-5">
           <h3 className="font-bold text-gray-800 mb-4">3M 스코어 변화</h3>
-          {scoreData.length >= 2 ? (
+          {mounted && scoreData.length >= 2 ? (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={scoreData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -227,7 +271,6 @@ export default function DashboardPage() {
           <div className="card p-5">
             <h3 className="font-bold text-gray-800 mb-0.5">주차별 기록</h3>
             <p className="text-xs text-gray-400 mb-3">각 점수는 100점 만점 기준</p>
-            {/* 헤더 */}
             <div className="flex items-center justify-between pb-2 border-b border-gray-200 text-xs font-semibold text-gray-400">
               <span className="w-10">주차</span>
               <span className="w-14">몸무게</span>
@@ -272,18 +315,25 @@ export default function DashboardPage() {
 
         {/* 다음 주차 버튼 */}
         {currentWeek <= 12 && (
-          <button
-            onClick={() =>
-              currentWeek <= 11
-                ? router.push("/weekly")
-                : router.push("/survey?week=12")
-            }
-            className="btn-primary"
-          >
-            {currentWeek <= 11
-              ? `${currentWeek}주차 체크 시작 →`
-              : "12주차 최종 설문 →"}
-          </button>
+          weekLocked ? (
+            <div className="w-full rounded-2xl bg-gray-100 border border-gray-200 p-4 text-center">
+              <p className="text-sm font-bold text-gray-400">
+                🔒 {recordWeekLabel}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{unlockLabel}</p>
+            </div>
+          ) : (
+            <button
+              onClick={() =>
+                currentWeek <= 11
+                  ? router.push("/weekly")
+                  : router.push("/survey?week=12")
+              }
+              className="btn-primary"
+            >
+              {recordWeekLabel} →
+            </button>
+          )
         )}
 
         {/* 처음으로 */}

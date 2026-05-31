@@ -137,10 +137,6 @@ export default function HomePage() {
 
     if (!data.week1Scores) {
       router.push("/onboarding");
-    } else if ((data.weeklyRecords?.length ?? 0) < 10) {
-      router.push("/weekly");
-    } else if (!data.week12Scores) {
-      router.push("/survey?week=12");
     } else {
       router.push("/dashboard");
     }
@@ -184,45 +180,51 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* 본인 인증 카드 */}
-        <div className="card p-6">
-          <h2 className="font-bold text-lg text-gray-800 mb-1">본인 인증</h2>
-          <p className="text-sm text-gray-500 mb-6">이름과 생년월일로 시작해요</p>
+        {/* 본인 인증 카드 - 기존 사용자가 없을 때만 표시 */}
+        {!existing?.basicInfo?.name && (
+          <div className="card p-6">
+            <h2 className="font-bold text-lg text-gray-800 mb-1">본인 인증</h2>
+            <p className="text-sm text-gray-500 mb-6">인스타그램 아이디와 생년월일로 시작해요</p>
 
-          <form onSubmit={handleStart} className="space-y-4">
-            <div>
-              <label className="label-text">이름</label>
-              <KoreanInput
-                className="input-field"
-                type="text"
-                placeholder="홍길동"
-                value={name}
-                onChange={setName}
-              />
-            </div>
+            <form onSubmit={handleStart} className="space-y-4">
+              <div>
+                <label className="label-text">인스타그램 아이디</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">@</span>
+                  <KoreanInput
+                    className="input-field pl-7"
+                    type="text"
+                    placeholder="bora__magic"
+                    value={name}
+                    onChange={setName}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">@ 없이 아이디만 입력해주세요</p>
+              </div>
 
-            <div>
-              <label className="label-text">생년월일</label>
-              <input
-                className="input-field"
-                type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                max={new Date().toISOString().split("T")[0]}
-              />
-            </div>
+              <div>
+                <label className="label-text">생년월일</label>
+                <input
+                  className="input-field"
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                />
+              </div>
 
-            {error && (
-              <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">
-                {error}
-              </p>
-            )}
+              {error && (
+                <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">
+                  {error}
+                </p>
+              )}
 
-            <button type="submit" className="btn-primary mt-2">
-              새로 시작하기 →
-            </button>
-          </form>
-        </div>
+              <button type="submit" className="btn-primary mt-2">
+                새로 시작하기 →
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* 3M 아이콘 */}
         <div className="mt-6 grid grid-cols-3 gap-3 text-center">

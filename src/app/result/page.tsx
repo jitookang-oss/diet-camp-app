@@ -136,6 +136,7 @@ function ResultContent() {
   const isWeek12 = params.get("week") === "12";
   const [data, setData] = useState<ParticipantData | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfReady, setPdfReady] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -160,13 +161,17 @@ function ResultContent() {
   }
 
   async function handleDownloadPdf() {
-    if (!pdfRef.current || !data) return;
+    if (!data) return;
     setPdfLoading(true);
+    setPdfReady(true);
+    // DOM에 PdfReport가 마운트될 시간 확보
+    await new Promise((r) => setTimeout(r, 100));
     try {
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
+      if (!pdfRef.current) throw new Error("PDF 영역을 찾을 수 없어요");
       const canvas = await html2canvas(pdfRef.current, {
         scale: 2,
         useCORS: true,
@@ -184,6 +189,7 @@ function ResultContent() {
       alert("PDF 저장 중 오류가 발생했어요. 다시 시도해주세요.");
     } finally {
       setPdfLoading(false);
+      setPdfReady(false);
     }
   }
 
@@ -374,19 +380,15 @@ function ResultContent() {
           </button>
         </div>
 
-        {/* PDF 캡처 전용 영역 — 화면 밖에 숨김 */}
-        <div
-          style={{
-            position: "fixed",
-            top: "-9999px",
-            left: "-9999px",
-            zIndex: -1,
-            pointerEvents: "none",
-          }}
-          ref={pdfRef}
-        >
-          <PdfReport data={data} scores={scores} isWeek12={isWeek12} />
-        </div>
+        {/* PDF 캡처 전용 영역 — 다운로드 클릭 시에만 마운트 */}
+        {pdfReady && (
+          <div
+            style={{ position: "fixed", top: "-9999px", left: "-9999px", zIndex: -1, pointerEvents: "none" }}
+            ref={pdfRef}
+          >
+            <PdfReport data={data} scores={scores} isWeek12={isWeek12} />
+          </div>
+        )}
       </div>
     </main>
   );
