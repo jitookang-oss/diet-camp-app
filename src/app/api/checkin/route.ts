@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { verifyCheckinToken } from "@/lib/alimtalk";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/rest\/v1\/?$/, "");
+import { getSupabase } from "@/lib/supabase-server";
 
 const TYPE_LABELS: Record<string, string> = {
   supplement: "영양제",
@@ -25,7 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "유효하지 않은 링크입니다." }, { status: 403 });
   }
 
-  const supabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = getSupabase();
 
   const { data: participant } = await supabase
     .from("participants")

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { sendAlimtalk, generateCheckinToken } from "@/lib/alimtalk";
 import { getCampDayInfo } from "@/lib/missions";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/rest\/v1\/?$/, "");
+import { getSupabase } from "@/lib/supabase-server";
 
 export async function GET(request: Request) {
   if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -15,7 +13,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "알림톡 템플릿 미설정" }, { status: 503 });
   }
 
-  const supabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = getSupabase();
   const { data: participants, error } = await supabase
     .from("participants")
     .select("name, phone")

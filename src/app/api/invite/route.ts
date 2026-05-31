@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/rest\/v1\/?$/, "");
+import { getSupabase } from "@/lib/supabase-server";
 
 export async function GET(request: NextRequest) {
   const token = new URL(request.url).searchParams.get("token");
@@ -10,7 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "토큰이 없습니다." }, { status: 400 });
   }
 
-  const supabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = getSupabase();
 
   const { data, error } = await supabase
     .from("participants")
