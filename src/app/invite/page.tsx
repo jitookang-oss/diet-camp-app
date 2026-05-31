@@ -75,7 +75,7 @@ function InviteContent() {
     <div className="text-center py-16">
       <div className="text-6xl mb-6">🌿</div>
       <h1 className="text-2xl font-black text-gray-900 mb-2">{name}님, 환영해요!</h1>
-      <p className="text-gray-600 mb-2">이지약국 12주 다이어트 캠프에 초대됐어요.</p>
+      <p className="text-gray-600 mb-2">보라매직 12주 다이어트 캠프에 초대됐어요.</p>
       <p className="text-sm text-gray-400 mb-8">아래 버튼을 눌러 기본 정보를 입력하면<br />캠프가 시작됩니다.</p>
       <button
         onClick={() => router.push("/onboarding")}
@@ -93,7 +93,7 @@ export default function InvitePage() {
       <div className="w-full max-w-md">
         <div className="card p-8">
           <div className="text-center mb-6">
-            <p className="text-xs text-gray-400 tracking-widest uppercase">이지약국 다이어트 캠프</p>
+            <p className="text-xs text-gray-400 tracking-widest uppercase">보라매직 다이어트 캠프</p>
           </div>
           <Suspense fallback={
             <div className="text-center py-10">

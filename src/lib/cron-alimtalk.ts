@@ -20,7 +20,10 @@ export async function handleCronAlimtalk({ request, templateEnvKey, checkinType,
     return NextResponse.json({ error: "알림톡 템플릿 미설정" }, { status: 503 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  // KST(UTC+9) 기준 날짜 사용 — Vercel은 UTC이므로 오프셋 보정 필요
+  const now = new Date();
+  const kstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const today = kstDate.toISOString().slice(0, 10);
   if (today < "2026-06-08") {
     return NextResponse.json({ skipped: true, reason: "알림톡 발송 시작일 전입니다 (6/8부터)" });
   }
