@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadParticipant, ParticipantData } from "@/lib/store";
+import { loadParticipant, saveParticipant, ParticipantData } from "@/lib/store";
 import { getCampDayInfo, CampDayInfo, CAMP_START_DATE } from "@/lib/missions";
+import MissionDetailModal from "@/components/MissionDetailModal";
 
 function DayCounter({ info }: { info: CampDayInfo }) {
   if (info.isBeforeStart) {
@@ -53,11 +54,14 @@ function DayCounter({ info }: { info: CampDayInfo }) {
   );
 }
 
-function MissionCard({ info }: { info: CampDayInfo }) {
+function MissionCard({ info, onOpen }: { info: CampDayInfo; onOpen: () => void }) {
   if (!info.currentMission) return null;
   const { currentMission, campWeek } = info;
   return (
-    <div className="card p-5 mb-6 border-l-4 border-green-500">
+    <button
+      onClick={onOpen}
+      className="w-full card p-5 mb-6 border-l-4 border-green-500 text-left hover:bg-green-50 transition-colors"
+    >
       <div className="flex items-start gap-3">
         <span className="text-2xl">{currentMission.icon}</span>
         <div className="flex-1 min-w-0">
@@ -65,12 +69,18 @@ function MissionCard({ info }: { info: CampDayInfo }) {
             <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
               {campWeek}주차 미션
             </span>
+            {currentMission.isConsultationWeek && (
+              <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                상담 주간
+              </span>
+            )}
           </div>
           <p className="font-bold text-gray-800 text-sm mb-1">{currentMission.title}</p>
           <p className="text-xs text-gray-500 leading-relaxed">{currentMission.detail}</p>
         </div>
+        <span className="text-green-500 text-sm flex-shrink-0 mt-0.5">→</span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -78,21 +88,33 @@ export default function HomePage() {
   const router = useRouter();
   const [existing, setExisting] = useState<ParticipantData | null>(null);
   const [campInfo, setCampInfo] = useState<CampDayInfo | null>(null);
+  const [showMissionModal, setShowMissionModal] = useState(false);
 
   useEffect(() => {
-    setExisting(loadParticipant());
+    const d = loadParticipant();
+    setExisting(d);
     setCampInfo(getCampDayInfo());
   }, []);
+
+  const missionChecked =
+    campInfo?.campWeek && existing?.missionChecks
+      ? existing.missionChecks[campInfo.campWeek] ?? false
+      : false;
+
+  function handleMissionCheck() {
+    if (!campInfo?.campWeek || !existing) return;
+    const week = campInfo.campWeek;
+    const newChecks = { ...(existing.missionChecks ?? {}), [week]: !missionChecked };
+    const updated = { ...existing, missionChecks: newChecks };
+    saveParticipant({ missionChecks: newChecks });
+    setExisting(updated);
+  }
 
   function handleContinue() {
     const data = loadParticipant();
     if (!data) return;
     if (!data.week1Scores) {
       router.push("/onboarding");
-    } else if ((data.weeklyRecords?.length ?? 0) < 10) {
-      router.push("/weekly");
-    } else if (!data.week12Scores) {
-      router.push("/survey?week=12");
     } else {
       router.push("/dashboard");
     }
@@ -104,9 +126,9 @@ export default function HomePage() {
         {/* 헤더 */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm mb-4">
-            <span className="text-green-700 font-semibold text-sm">이지약국</span>
+            <span className="text-green-700 font-semibold text-sm">보라매직</span>
             <span className="text-gray-400">·</span>
-            <span className="text-gray-500 text-sm">@보라매직</span>
+            <span className="text-gray-500 text-sm">@bora__magic</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2 leading-tight">
             12주<br />다이어트 캠프
@@ -121,7 +143,9 @@ export default function HomePage() {
         {campInfo && <DayCounter info={campInfo} />}
 
         {/* 이번 주 미션 */}
-        {campInfo && <MissionCard info={campInfo} />}
+        {campInfo && (
+          <MissionCard info={campInfo} onOpen={() => setShowMissionModal(true)} />
+        )}
 
         {/* 기존 기록 있는 경우 */}
         {existing?.basicInfo?.name ? (
@@ -135,7 +159,6 @@ export default function HomePage() {
             </button>
           </div>
         ) : (
-          /* 초대 링크 안내 */
           <div className="card p-6 text-center">
             <div className="text-4xl mb-3">🔗</div>
             <h2 className="font-bold text-lg text-gray-800 mb-2">초대 링크로 참여하세요</h2>
@@ -161,6 +184,17 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      {/* 미션 상세 모달 */}
+      {showMissionModal && campInfo?.currentMission && (
+        <MissionDetailModal
+          mission={campInfo.currentMission}
+          campWeek={campInfo.campWeek}
+          checked={missionChecked}
+          onCheck={handleMissionCheck}
+          onClose={() => setShowMissionModal(false)}
+        />
+      )}
     </main>
   );
 }

@@ -35,6 +35,7 @@ export interface ParticipantData {
   weeklyRecords: WeeklyRecord[];
   week12Answers?: SurveyAnswers;
   week12Scores?: Scores;
+  missionChecks?: Record<number, boolean>; // campWeek → 달성 여부 (localStorage only)
 }
 
 const STORAGE_KEY = "dietcamp_participant";

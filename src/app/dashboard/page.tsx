@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadParticipant, ParticipantData, getCurrentWeek } from "@/lib/store";
+import { loadParticipant, saveParticipant, ParticipantData, getCurrentWeek } from "@/lib/store";
 import { bodyTypeInfo } from "@/lib/scoring";
-import { getWeekCheckUnlockDate, isCheckWeekUnlocked } from "@/lib/missions";
+import { getCampDayInfo, getWeekCheckUnlockDate, isCheckWeekUnlocked } from "@/lib/missions";
+import MissionDetailModal from "@/components/MissionDetailModal";
 import {
   LineChart,
   Line,
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<ParticipantData | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showBookmarkTip, setShowBookmarkTip] = useState(false);
+  const [showMissionModal, setShowMissionModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -31,10 +33,7 @@ export default function DashboardPage() {
       return;
     }
     setData(d);
-    // 첫 방문 시 (주차 기록 없을 때) 즐겨찾기 안내 표시
-    if ((d.weeklyRecords?.length ?? 0) === 0) {
-      setShowBookmarkTip(true);
-    }
+    if ((d.weeklyRecords?.length ?? 0) === 0) setShowBookmarkTip(true);
   }, [router]);
 
   if (!data) return null;
@@ -42,6 +41,18 @@ export default function DashboardPage() {
   const { basicInfo, week1Scores, weeklyRecords, bodyType } = data;
   const currentWeek = getCurrentWeek(data);
   const typeInfo = bodyType ? bodyTypeInfo[bodyType] : null;
+  const campInfo = getCampDayInfo();
+  const { campWeek, currentMission } = campInfo;
+
+  // 이번 주 미션 달성 여부
+  const missionChecked = campWeek > 0 ? (data.missionChecks?.[campWeek] ?? false) : false;
+
+  function handleMissionCheck() {
+    if (!campWeek || !data) return;
+    const newChecks = { ...(data.missionChecks ?? {}), [campWeek]: !missionChecked };
+    saveParticipant({ missionChecks: newChecks });
+    setData({ ...data, missionChecks: newChecks });
+  }
 
   // 주차별 잠금 상태
   const weekLocked = currentWeek <= 11 && !isCheckWeekUnlocked(currentWeek);
@@ -49,27 +60,15 @@ export default function DashboardPage() {
   const unlockLabel = unlockDate
     ? `${unlockDate.getMonth() + 1}/${unlockDate.getDate()}부터 가능`
     : "";
-
-  // 버튼 라벨: 2주차 → "1주차 기록하기", 3주차 → "2주차 기록하기", ...
   const recordWeekLabel = currentWeek <= 11 ? `${currentWeek - 1}주차 기록하기` : "12주차 최종 설문";
 
-  // 몸무게 그래프 데이터
+  // 차트 데이터
   const weightData = [
     { week: "1주", weight: basicInfo.weight },
-    ...(weeklyRecords ?? []).map((r) => ({
-      week: `${r.week}주`,
-      weight: r.weight,
-    })),
+    ...(weeklyRecords ?? []).map((r) => ({ week: `${r.week}주`, weight: r.weight })),
   ];
-
-  // 3M 스코어 그래프 데이터
   const scoreData = [
-    {
-      week: "1주",
-      Meal: week1Scores?.meal,
-      Mobility: week1Scores?.mobility,
-      Mentation: week1Scores?.mentation,
-    },
+    { week: "1주", Meal: week1Scores?.meal, Mobility: week1Scores?.mobility, Mentation: week1Scores?.mentation },
     ...(weeklyRecords ?? []).map((r) => ({
       week: `${r.week}주`,
       Meal: r.scores.meal,
@@ -78,63 +77,64 @@ export default function DashboardPage() {
     })),
   ];
 
-  const latestWeight =
-    weeklyRecords.length > 0
-      ? weeklyRecords[weeklyRecords.length - 1].weight
-      : basicInfo.weight;
+  const latestWeight = weeklyRecords.length > 0 ? weeklyRecords[weeklyRecords.length - 1].weight : basicInfo.weight;
   const weightDiff = Math.round((latestWeight - basicInfo.weight) * 10) / 10;
   const progressToGoal =
     basicInfo.weight === basicInfo.goalWeight
       ? 100
-      : Math.min(
-          100,
-          Math.max(
-            0,
-            Math.round(
-              ((basicInfo.weight - latestWeight) /
-                (basicInfo.weight - basicInfo.goalWeight)) *
-                100
-            )
-          )
-        );
+      : Math.min(100, Math.max(0, Math.round(((basicInfo.weight - latestWeight) / (basicInfo.weight - basicInfo.goalWeight)) * 100)));
 
   return (
     <main className="min-h-screen px-4 py-10 pb-24">
       <div className="w-full max-w-md mx-auto space-y-4">
         {/* 헤더 */}
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {basicInfo.name}님의 대시보드
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            현재 {currentWeek - 1}주차 진행 중
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{basicInfo.name}님의 대시보드</h1>
+          <p className="text-sm text-gray-500 mt-1">현재 {currentWeek - 1}주차 진행 중</p>
         </div>
 
-        {/* 즐겨찾기 안내 (첫 방문) */}
+        {/* 즐겨찾기 안내 */}
         {showBookmarkTip && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-sm font-bold text-amber-800 mb-1">
-                  📌 이 페이지를 즐겨찾기에 추가하세요!
-                </p>
+                <p className="text-sm font-bold text-amber-800 mb-1">📌 이 페이지를 즐겨찾기에 추가하세요!</p>
                 <p className="text-xs text-amber-700 leading-relaxed">
                   다음에도 이 화면에서 기록을 이어갈 수 있어요.<br />
                   브라우저 주소창 옆 ☆ 아이콘을 눌러 저장해두세요.
                 </p>
-                <p className="text-xs text-amber-600 mt-1 font-medium break-all">
-                  🔗 {typeof window !== "undefined" ? window.location.origin : ""}
-                </p>
               </div>
-              <button
-                onClick={() => setShowBookmarkTip(false)}
-                className="text-amber-400 hover:text-amber-600 text-lg flex-shrink-0 leading-none"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowBookmarkTip(false)} className="text-amber-400 hover:text-amber-600 text-lg flex-shrink-0">✕</button>
             </div>
           </div>
+        )}
+
+        {/* 이번 주 미션 카드 */}
+        {currentMission && (
+          <button
+            onClick={() => setShowMissionModal(true)}
+            className="w-full card p-5 border-l-4 border-green-500 text-left hover:bg-green-50 transition-colors"
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">{currentMission.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                    {campWeek}주차 미션
+                  </span>
+                  {currentMission.isConsultationWeek && (
+                    <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">상담 주간</span>
+                  )}
+                  {missionChecked && (
+                    <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">✓ 달성</span>
+                  )}
+                </div>
+                <p className="font-bold text-gray-800 text-sm mb-1">{currentMission.title}</p>
+                <p className="text-xs text-gray-500 leading-relaxed">{currentMission.detail}</p>
+              </div>
+              <span className="text-green-500 text-sm flex-shrink-0 mt-0.5">→</span>
+            </div>
+          </button>
         )}
 
         {/* 요약 카드 */}
@@ -142,27 +142,18 @@ export default function DashboardPage() {
           <div className="card p-4 text-center">
             <p className="text-xs text-gray-500 mb-1">현재 몸무게</p>
             <p className="text-2xl font-black text-gray-900">
-              {latestWeight}
-              <span className="text-sm font-normal text-gray-500 ml-1">kg</span>
+              {latestWeight}<span className="text-sm font-normal text-gray-500 ml-1">kg</span>
             </p>
-            <p
-              className={`text-xs font-semibold mt-1 ${
-                weightDiff <= 0 ? "text-green-600" : "text-red-500"
-              }`}
-            >
+            <p className={`text-xs font-semibold mt-1 ${weightDiff <= 0 ? "text-green-600" : "text-red-500"}`}>
               {weightDiff <= 0 ? `▼ ${Math.abs(weightDiff)}` : `▲ ${weightDiff}`} kg
             </p>
           </div>
-
           <div className="card p-4 text-center">
             <p className="text-xs text-gray-500 mb-1">목표까지</p>
             <p className="text-2xl font-black text-green-700">
-              {progressToGoal}
-              <span className="text-sm font-normal text-gray-500 ml-1">%</span>
+              {progressToGoal}<span className="text-sm font-normal text-gray-500 ml-1">%</span>
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              목표 {basicInfo.goalWeight}kg
-            </p>
+            <p className="text-xs text-gray-500 mt-1">목표 {basicInfo.goalWeight}kg</p>
           </div>
         </div>
 
@@ -175,10 +166,7 @@ export default function DashboardPage() {
               <p className="font-bold text-gray-800">{bodyType}</p>
               <p className="text-xs text-gray-600 mt-0.5">{typeInfo.guide}</p>
             </div>
-            <button
-              onClick={() => router.push("/result")}
-              className="ml-auto text-green-700 text-xs font-semibold flex-shrink-0"
-            >
+            <button onClick={() => router.push("/result")} className="ml-auto text-green-700 text-xs font-semibold flex-shrink-0">
               상세 →
             </button>
           </div>
@@ -192,34 +180,14 @@ export default function DashboardPage() {
               <LineChart data={weightData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="week" tick={{ fontSize: 12 }} />
-                <YAxis
-                  domain={["auto", "auto"]}
-                  tick={{ fontSize: 12 }}
-                  width={40}
-                />
+                <YAxis domain={["auto", "auto"]} tick={{ fontSize: 12 }} width={40} />
                 <Tooltip />
-                <ReferenceLine
-                  y={basicInfo.goalWeight}
-                  stroke="#22c55e"
-                  strokeDasharray="5 5"
-                  label={{
-                    value: "목표",
-                    fontSize: 11,
-                    fill: "#22c55e",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="weight"
-                  stroke="#2d6a4f"
-                  strokeWidth={2.5}
-                  dot={{ fill: "#2d6a4f", r: 4 }}
-                  name="몸무게"
-                />
+                <ReferenceLine y={basicInfo.goalWeight} stroke="#22c55e" strokeDasharray="5 5" label={{ value: "목표", fontSize: 11, fill: "#22c55e" }} />
+                <Line type="monotone" dataKey="weight" stroke="#2d6a4f" strokeWidth={2.5} dot={{ fill: "#2d6a4f", r: 4 }} name="몸무게" />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+            <div className="flex items-center justify-center h-32 text-gray-400">
               <p className="text-sm">2주차부터 그래프가 표시돼요</p>
             </div>
           )}
@@ -236,31 +204,13 @@ export default function DashboardPage() {
                 <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} width={35} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line
-                  type="monotone"
-                  dataKey="Meal"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Mobility"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Mentation"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
+                <Line type="monotone" dataKey="Meal" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="Mobility" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="Mentation" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+            <div className="flex items-center justify-center h-32 text-gray-400">
               <p className="text-sm">2주차부터 그래프가 표시돼요</p>
             </div>
           )}
@@ -279,34 +229,13 @@ export default function DashboardPage() {
               <span className="text-purple-500">마음</span>
             </div>
             <div className="space-y-0">
-              {[
-                {
-                  week: 1,
-                  weight: basicInfo.weight,
-                  scores: week1Scores!,
-                  completedAt: "",
-                },
-                ...weeklyRecords,
-              ].map((r) => (
-                <div
-                  key={r.week}
-                  className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0"
-                >
-                  <span className="text-sm font-semibold text-gray-700 w-10">
-                    {r.week}주
-                  </span>
-                  <span className="text-sm text-gray-600 w-14">
-                    {r.weight}kg
-                  </span>
-                  <span className="text-sm font-bold text-amber-600 w-10 text-center">
-                    {r.scores?.meal ?? "-"}
-                  </span>
-                  <span className="text-sm font-bold text-blue-600 w-10 text-center">
-                    {r.scores?.mobility ?? "-"}
-                  </span>
-                  <span className="text-sm font-bold text-purple-600 w-10 text-center">
-                    {r.scores?.mentation ?? "-"}
-                  </span>
+              {[{ week: 1, weight: basicInfo.weight, scores: week1Scores!, completedAt: "" }, ...weeklyRecords].map((r) => (
+                <div key={r.week} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+                  <span className="text-sm font-semibold text-gray-700 w-10">{r.week}주</span>
+                  <span className="text-sm text-gray-600 w-14">{r.weight}kg</span>
+                  <span className="text-sm font-bold text-amber-600 w-10 text-center">{r.scores?.meal ?? "-"}</span>
+                  <span className="text-sm font-bold text-blue-600 w-10 text-center">{r.scores?.mobility ?? "-"}</span>
+                  <span className="text-sm font-bold text-purple-600 w-10 text-center">{r.scores?.mentation ?? "-"}</span>
                 </div>
               ))}
             </div>
@@ -317,18 +246,12 @@ export default function DashboardPage() {
         {currentWeek <= 12 && (
           weekLocked ? (
             <div className="w-full rounded-2xl bg-gray-100 border border-gray-200 p-4 text-center">
-              <p className="text-sm font-bold text-gray-400">
-                🔒 {recordWeekLabel}
-              </p>
+              <p className="text-sm font-bold text-gray-400">🔒 {recordWeekLabel}</p>
               <p className="text-xs text-gray-400 mt-1">{unlockLabel}</p>
             </div>
           ) : (
             <button
-              onClick={() =>
-                currentWeek <= 11
-                  ? router.push("/weekly")
-                  : router.push("/survey?week=12")
-              }
+              onClick={() => currentWeek <= 11 ? router.push("/weekly") : router.push("/survey?week=12")}
               className="btn-primary"
             >
               {recordWeekLabel} →
@@ -336,14 +259,19 @@ export default function DashboardPage() {
           )
         )}
 
-        {/* 처음으로 */}
-        <button
-          onClick={() => router.push("/")}
-          className="btn-secondary"
-        >
-          처음으로
-        </button>
+        <button onClick={() => router.push("/")} className="btn-secondary">처음으로</button>
       </div>
+
+      {/* 미션 상세 모달 */}
+      {showMissionModal && currentMission && (
+        <MissionDetailModal
+          mission={currentMission}
+          campWeek={campWeek}
+          checked={missionChecked}
+          onCheck={handleMissionCheck}
+          onClose={() => setShowMissionModal(false)}
+        />
+      )}
     </main>
   );
 }
