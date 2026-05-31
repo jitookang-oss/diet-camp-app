@@ -331,7 +331,7 @@ function AddParticipantModal({
     e.preventDefault();
     setError("");
     const cleanPhone = phone.replace(/-/g, "");
-    if (!name.trim()) { setError("이름을 입력해주세요."); return; }
+    if (!name.trim()) { setError("닉네임을 입력해주세요."); return; }
     if (!/^0\d{9,10}$/.test(cleanPhone)) { setError("올바른 전화번호를 입력해주세요. (예: 01012345678)"); return; }
 
     setLoading(true);
@@ -356,11 +356,11 @@ function AddParticipantModal({
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">닉네임</label>
             <input
               className="input-field"
               type="text"
-              placeholder="홍길동"
+              placeholder="예: 보라언니, 다이어터1"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -422,7 +422,7 @@ function ExcelUploadModal({
           .map((row) => {
             // 열 이름 유연하게 파싱 (이름/성명/Name, 전화번호/핸드폰/Phone 등)
             const name =
-              row["이름"] || row["성명"] || row["Name"] || row["name"] || "";
+              row["닉네임"] || row["이름"] || row["성명"] || row["Name"] || row["name"] || "";
             const phone =
               row["전화번호"] || row["핸드폰"] || row["휴대폰"] || row["Phone"] || row["phone"] || row["연락처"] || "";
             return {
@@ -474,13 +474,13 @@ function ExcelUploadModal({
             <p>첫 번째 행은 열 이름, 아래 열이 있어야 해요:</p>
             <div className="mt-2 bg-white rounded-lg p-3 font-mono text-xs text-gray-700">
               <div className="grid grid-cols-2 gap-2">
-                <span className="bg-gray-100 px-2 py-1 rounded">이름</span>
+                <span className="bg-gray-100 px-2 py-1 rounded">닉네임</span>
                 <span className="bg-gray-100 px-2 py-1 rounded">전화번호</span>
-                <span className="px-2 py-1 text-gray-500">홍길동</span>
+                <span className="px-2 py-1 text-gray-500">보라언니</span>
                 <span className="px-2 py-1 text-gray-500">01012345678</span>
               </div>
             </div>
-            <p className="text-xs text-blue-500 mt-1">성명·Name, 핸드폰·휴대폰·연락처·Phone도 인식돼요</p>
+            <p className="text-xs text-blue-500 mt-1">닉네임·성명·Name, 핸드폰·휴대폰·연락처·Phone도 인식돼요</p>
           </div>
 
           {/* 파일 선택 */}
@@ -511,7 +511,7 @@ function ExcelUploadModal({
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">#</th>
-                      <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">이름</th>
+                      <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">닉네임</th>
                       <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">전화번호</th>
                       <th className="text-left px-3 py-2 text-xs text-gray-500 font-semibold">상태</th>
                     </tr>
@@ -655,7 +655,7 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">이름</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">닉네임</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">전화번호</th>
                 {CHECKIN_TYPES.map((t) => (
                   <th key={t.key} className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase">
@@ -830,7 +830,7 @@ export default function AdminPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">이름 / 전화번호</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">닉네임 / 전화번호</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">성별 · 나이</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">BMI</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">체질</th>
