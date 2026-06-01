@@ -69,7 +69,8 @@ export default function DashboardPage() {
 
   if (!data) return null;
 
-  const { basicInfo, week1Scores, weeklyRecords, bodyType } = data;
+  const { basicInfo, week1Scores, bodyType } = data;
+  const weeklyRecords = data.weeklyRecords ?? [];
   const currentWeek = getCurrentWeek(data);
   const typeInfo = bodyType ? bodyTypeInfo[bodyType] : null;
   const campInfo = getCampDayInfo();
