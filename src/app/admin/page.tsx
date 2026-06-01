@@ -251,7 +251,7 @@ function ParticipantDetail({
               ) : (
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">미완료</span>
               )}
-              {(p.week1_scores || p.weekly_records?.length > 0 || p.week12_scores) && (
+              {(p.week1_scores || (p.weekly_records?.length ?? 0) > 0 || p.week12_scores || (p.menopause_symptoms?.length ?? 0) > 0) && (
                 <button
                   onClick={() => setShowDetail(!showDetail)}
                   className={`text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
@@ -328,7 +328,7 @@ function ParticipantDetail({
                 )}
                 {(p.menopause_symptoms?.length ?? 0) > 0 && (
                   <div className="bg-purple-50 rounded-xl px-3 py-2">
-                    <span className="font-medium text-purple-700">갱년기 증상:</span>{" "}
+                    <span className="font-medium text-purple-700">호르몬 변화 관련:</span>{" "}
                     <span className="text-gray-700">{p.menopause_symptoms!.join(", ")}</span>
                   </div>
                 )}
@@ -490,7 +490,22 @@ function ParticipantDetail({
                 </div>
               )}
 
-              {!p.week1_scores && !p.weekly_records?.length && !p.week12_scores && (
+              {/* 호르몬 변화 관련 증상 */}
+              {(p.menopause_symptoms?.length ?? 0) > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">호르몬 변화 관련 증상</h3>
+                  <div className="space-y-1">
+                    {p.menopause_symptoms!.map((symptom) => (
+                      <div key={symptom} className="flex items-center gap-2 bg-purple-50 rounded-lg px-3 py-2 text-sm">
+                        <span className="w-4 h-4 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 text-xs flex-shrink-0">✓</span>
+                        <span className="text-gray-700">{symptom}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!p.week1_scores && !p.weekly_records?.length && !p.week12_scores && (p.menopause_symptoms?.length ?? 0) === 0 && (
                 <p className="text-sm text-gray-400 text-center py-4">1주차 설문 완료 후 차트가 표시됩니다</p>
               )}
             </div>

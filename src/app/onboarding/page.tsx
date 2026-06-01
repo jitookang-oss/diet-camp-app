@@ -6,11 +6,13 @@ import { loadParticipant, saveParticipant, calculateBMI, BasicInfo } from "@/lib
 import KoreanInput from "@/components/KoreanInput";
 
 const MENOPAUSE_ITEMS = [
-  "생리가 불규칙하거나 끊긴 상태",
-  "얼굴이 화끈거리거나 열감이 있음",
-  "수면 중 식은땀이 남",
-  "감정 기복이 심해짐",
-  "체중이 갑자기 늘거나 복부비만이 심해짐",
+  "생리 주기가 불규칙하거나 변화가 있음",
+  "얼굴 홍조나 열감이 있음",
+  "수면의 질이 낮거나 자다가 식은땀이 남",
+  "감정 기복이 심하거나 예민해짐",
+  "체중 변화 또는 복부지방이 늘었음",
+  "피부 건조·탄력 저하 또는 탈모",
+  "피로감이 지속되거나 무기력함",
 ];
 
 export default function OnboardingPage() {
@@ -404,15 +406,15 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* STEP 3: 갱년기 (여성만) */}
+        {/* STEP 3: 호르몬 변화 (여성만) */}
         {step === 3 && (
           <div className="card p-6">
             <h2 className="font-bold text-xl text-gray-800 mb-1">
-              {gender === "여" ? "갱년기 증상 확인" : "준비 완료!"}
+              {gender === "여" ? "호르몬 변화 관련 증상 확인" : "준비 완료!"}
             </h2>
             <p className="text-sm text-gray-500 mb-6">
               {gender === "여"
-                ? "해당되는 항목을 모두 선택해주세요 (없으면 바로 다음)"
+                ? "최근 6개월 내 해당되는 항목을 모두 선택해주세요 (없으면 바로 다음)"
                 : "이제 다이어트 시작 전 설문을 시작할게요"}
             </p>
 
