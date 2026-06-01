@@ -1,8 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+} from "recharts";
 
 interface Participant {
   id: string;
@@ -25,9 +39,12 @@ interface Participant {
   weekly_records: Array<{
     week: number;
     weight: number;
+    answers: Record<string, string | number>;
     scores: Record<string, number>;
     completedAt: string;
   }>;
+  week1_answers: Record<string, string | number> | null;
+  week12_answers: Record<string, string | number> | null;
   week12_scores: Record<string, number> | null;
   phone: string | null;
   invite_token: string | null;
@@ -36,6 +53,46 @@ interface Participant {
 }
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "";
+
+type SurveyPartDef = { part: string; questions: { key: string; label: string; star?: boolean }[] };
+
+const SURVEY_PARTS: SurveyPartDef[] = [
+  {
+    part: "PART 1 · 음식",
+    questions: [
+      { key: "q1", label: "식사 시간", star: true },
+      { key: "q2", label: "채소·단백질 먼저" },
+      { key: "q3", label: "단백질 매끼" },
+      { key: "q4", label: "채소 매끼" },
+      { key: "q5", label: "초가공식품", star: true },
+      { key: "q6", label: "물 섭취량" },
+      { key: "q7", label: "야식 빈도", star: true },
+      { key: "q8", label: "결식 횟수" },
+      { key: "q9", label: "디저트·간식" },
+    ],
+  },
+  {
+    part: "PART 2 · 활동",
+    questions: [
+      { key: "q10", label: "식후 앉거나 눕기", star: true },
+      { key: "q11", label: "식후 걷기", star: true },
+      { key: "q12", label: "앉아있는 시간", star: true },
+      { key: "q14", label: "근력운동" },
+      { key: "q16", label: "식후 졸음" },
+      { key: "q17", label: "피로감" },
+    ],
+  },
+  {
+    part: "PART 3 · 멘탈",
+    questions: [
+      { key: "q18", label: "수면 시간", star: true },
+      { key: "q20", label: "스트레스 수준 (1~10)", star: true },
+      { key: "q22", label: "스트레스 때 과식·배달", star: true },
+      { key: "q23", label: "폭식 후 후회" },
+      { key: "q25", label: "음식으로 위안" },
+    ],
+  },
+];
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
@@ -115,6 +172,47 @@ function ParticipantDetail({
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(false);
+
+  const weightData = useMemo(() => {
+    const pts: { label: string; weight: number }[] = [];
+    if (p.weight > 0) pts.push({ label: "시작", weight: p.weight });
+    (p.weekly_records ?? []).forEach((rec) => {
+      if (rec.weight > 0) pts.push({ label: `${rec.week}주`, weight: rec.weight });
+    });
+    return pts;
+  }, [p]);
+
+  const scoreData = useMemo(() => {
+    const pts: Array<{ label: string; meal?: number; mobility?: number; mentation?: number; total?: number }> = [];
+    if (p.week1_scores) pts.push({ label: "1주", ...p.week1_scores });
+    (p.weekly_records ?? []).forEach((rec) => {
+      if (rec.scores) pts.push({ label: `${rec.week}주`, ...rec.scores });
+    });
+    if (p.week12_scores && !pts.some((pt) => pt.label === "12주")) {
+      pts.push({ label: "12주", ...p.week12_scores });
+    }
+    return pts;
+  }, [p]);
+
+  const latestScores =
+    p.week12_scores ??
+    (p.weekly_records?.length ? p.weekly_records[p.weekly_records.length - 1]?.scores : null) ??
+    p.week1_scores;
+
+  const radarData = latestScores
+    ? [
+        { subject: "음식", score: latestScores.meal ?? 0 },
+        { subject: "활동", score: latestScores.mobility ?? 0 },
+        { subject: "멘탈", score: latestScores.mentation ?? 0 },
+      ]
+    : [];
+
+  const radarLabel = p.week12_scores
+    ? "12주차"
+    : p.weekly_records?.length
+    ? `${p.weekly_records[p.weekly_records.length - 1].week}주차`
+    : "1주차";
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://diet-camp-app.vercel.app";
   const inviteUrl = p.invite_token ? `${baseUrl}/invite?token=${p.invite_token}` : null;
@@ -271,6 +369,107 @@ function ParticipantDetail({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* 몸무게 변화 차트 */}
+          {weightData.length >= 2 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">몸무게 변화</h3>
+              <ResponsiveContainer width="100%" height={150}>
+                <LineChart data={weightData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
+                  <Tooltip formatter={(v) => [`${v}kg`, "몸무게"]} />
+                  <Line type="monotone" dataKey="weight" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* 대사관리 스코어 변화 차트 */}
+          {scoreData.length >= 1 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">대사관리 스코어 변화</h3>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={scoreData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="meal" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} name="음식" />
+                  <Line type="monotone" dataKey="mobility" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} name="활동" />
+                  <Line type="monotone" dataKey="mentation" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 2 }} name="멘탈" />
+                  <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} name="종합" strokeDasharray="4 2" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* 레이더 차트 */}
+          {radarData.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                레이더 차트
+                <span className="ml-1 text-gray-300 font-normal normal-case">({radarLabel})</span>
+              </h3>
+              <div className="flex justify-center">
+                <RadarChart width={240} height={190} data={radarData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                  <Radar dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.25} />
+                </RadarChart>
+              </div>
+            </div>
+          )}
+
+          {/* 설문 답변 상세 */}
+          {(p.week1_answers || p.week12_answers || p.week1_scores) && (
+            <div>
+              <button
+                onClick={() => setShowAnswers(!showAnswers)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 hover:text-gray-600 transition-colors"
+              >
+                <span>설문 답변 상세</span>
+                <span className="text-gray-300 font-normal normal-case">{showAnswers ? "접기 ▲" : "펼치기 ▼"}</span>
+              </button>
+              {showAnswers && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-[1fr_1fr_1fr] gap-1 text-xs text-gray-400 px-3 pb-1 border-b border-gray-100">
+                    <span>문항</span>
+                    <span>1주차</span>
+                    <span className="text-indigo-400">12주차</span>
+                  </div>
+                  {SURVEY_PARTS.map(({ part, questions }) => (
+                    <div key={part}>
+                      <p className="text-xs font-bold text-gray-600 mb-1.5 px-1">{part}</p>
+                      <div className="space-y-1">
+                        {questions.map(({ key, label, star }) => {
+                          const w1 = p.week1_answers?.[key];
+                          const w12 = p.week12_answers?.[key];
+                          return (
+                            <div
+                              key={key}
+                              className="grid grid-cols-[1fr_1fr_1fr] gap-1 text-xs bg-gray-50 rounded-lg px-3 py-1.5"
+                            >
+                              <span className="text-gray-500 truncate">
+                                {star && <span className="text-yellow-500 mr-0.5">★</span>}
+                                {label}
+                              </span>
+                              <span className="text-gray-700 truncate">{w1 !== undefined ? String(w1) : "—"}</span>
+                              <span className={`truncate font-medium ${w12 !== undefined ? "text-indigo-600" : "text-gray-300"}`}>
+                                {w12 !== undefined ? String(w12) : "—"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
