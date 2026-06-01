@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadParticipant, saveParticipant, ParticipantData } from "@/lib/store";
+import { loadParticipant, ParticipantData } from "@/lib/store";
 import { getCampDayInfo, CampDayInfo, CAMP_START_DATE } from "@/lib/missions";
 import MissionDetailModal from "@/components/MissionDetailModal";
 
@@ -96,20 +96,6 @@ export default function HomePage() {
     setCampInfo(getCampDayInfo());
   }, []);
 
-  const missionChecked =
-    campInfo?.campWeek && existing?.missionChecks
-      ? existing.missionChecks[campInfo.campWeek] ?? false
-      : false;
-
-  function handleMissionCheck() {
-    if (!campInfo?.campWeek || !existing) return;
-    const week = campInfo.campWeek;
-    const newChecks = { ...(existing.missionChecks ?? {}), [week]: !missionChecked };
-    const updated = { ...existing, missionChecks: newChecks };
-    saveParticipant({ missionChecks: newChecks });
-    setExisting(updated);
-  }
-
   function handleContinue() {
     const data = loadParticipant();
     if (!data) return;
@@ -190,8 +176,7 @@ export default function HomePage() {
         <MissionDetailModal
           mission={campInfo.currentMission}
           campWeek={campInfo.campWeek}
-          checked={missionChecked}
-          onCheck={handleMissionCheck}
+          phone={existing?.basicInfo.phone}
           onClose={() => setShowMissionModal(false)}
         />
       )}

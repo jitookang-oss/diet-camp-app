@@ -1,18 +1,65 @@
 "use client";
 
-import { Mission } from "@/lib/missions";
+import { useEffect, useState, useCallback } from "react";
+import { Mission, getWeekDates } from "@/lib/missions";
 import { MISSION_DESCRIPTIONS } from "@/lib/mission-descriptions";
+
+const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+
+function getKSTToday() {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 interface Props {
   mission: Mission;
   campWeek: number;
-  checked: boolean;
-  onCheck: () => void;
+  phone?: string;
   onClose: () => void;
 }
 
-export default function MissionDetailModal({ mission, campWeek, checked, onCheck, onClose }: Props) {
+export default function MissionDetailModal({ mission, campWeek, phone, onClose }: Props) {
   const paragraphs = MISSION_DESCRIPTIONS[campWeek] ?? [];
+  const weekDates = getWeekDates(campWeek);
+  const kstToday = getKSTToday();
+
+  const [checkedDates, setCheckedDates] = useState<Set<string>>(new Set());
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  const loadChecks = useCallback(async () => {
+    if (!phone) return;
+    const res = await fetch(
+      `/api/mission-check?phone=${encodeURIComponent(phone)}&weekStart=${weekDates[0]}`
+    );
+    const json = await res.json();
+    setCheckedDates(new Set(json.checkedDates ?? []));
+  }, [phone, weekDates[0]]);
+
+  useEffect(() => {
+    loadChecks();
+  }, [loadChecks]);
+
+  async function toggleDate(date: string) {
+    if (!phone || toggling) return;
+    setToggling(date);
+    const isChecked = checkedDates.has(date);
+
+    if (isChecked) {
+      await fetch("/api/mission-check", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, date }),
+      });
+      setCheckedDates((prev) => { const s = new Set(prev); s.delete(date); return s; });
+    } else {
+      await fetch("/api/mission-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, date }),
+      });
+      setCheckedDates((prev) => new Set([...prev, date]));
+    }
+    setToggling(null);
+  }
 
   return (
     <div
@@ -20,7 +67,7 @@ export default function MissionDetailModal({ mission, campWeek, checked, onCheck
       onClick={onClose}
     >
       <div
-        className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[85vh] overflow-y-auto"
+        className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 핸들 바 (모바일) */}
@@ -68,18 +115,56 @@ export default function MissionDetailModal({ mission, campWeek, checked, onCheck
           )}
         </div>
 
-        {/* 미션 달성 체크 */}
+        {/* 요일별 미션 체크 */}
         <div className="px-6 pb-8 pt-2 border-t border-gray-100">
-          <button
-            onClick={onCheck}
-            className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all ${
-              checked
-                ? "bg-green-100 text-green-700 border-2 border-green-400"
-                : "bg-green-600 text-white hover:bg-green-700"
-            }`}
-          >
-            {checked ? "✓ 이번 주 미션 달성! (취소하려면 다시 누르세요)" : "이번 주 미션 달성했어요!"}
-          </button>
+          <p className="text-sm font-bold text-gray-700 mb-3">
+            이번 주 미션 달성한 날을 체크하세요
+          </p>
+          {!phone ? (
+            <p className="text-xs text-gray-400 text-center py-4">
+              전화번호가 등록된 참여자만 이용할 수 있어요
+            </p>
+          ) : (
+            <div className="grid grid-cols-7 gap-1.5">
+              {weekDates.map((date, i) => {
+                const isChecked = checkedDates.has(date);
+                const isToday = date === kstToday;
+                const isFuture = date > kstToday;
+                const isToggling = toggling === date;
+                const monthDay = date.slice(5).replace("-", "/");
+
+                return (
+                  <button
+                    key={date}
+                    onClick={() => !isFuture && toggleDate(date)}
+                    disabled={isFuture || isToggling}
+                    className={[
+                      "flex flex-col items-center py-2.5 rounded-xl transition-colors",
+                      isChecked
+                        ? "bg-green-100 border-2 border-green-400 text-green-700"
+                        : isFuture
+                        ? "bg-gray-50 text-gray-300 cursor-not-allowed"
+                        : isToday
+                        ? "bg-white border-2 border-gray-300 text-gray-500 hover:border-green-400"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200",
+                      isToggling ? "opacity-50" : "",
+                    ].join(" ")}
+                  >
+                    <span className="text-xs font-bold">{DAY_LABELS[i]}</span>
+                    <span className="text-[10px] mt-0.5 opacity-70">{monthDay}</span>
+                    <span className="mt-1 text-xs font-bold">
+                      {isChecked ? "✓" : isToggling ? "…" : "·"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {checkedDates.size > 0 && (
+            <p className="text-xs text-green-600 font-semibold text-center mt-3">
+              이번 주 {checkedDates.size}일 달성 중! 💪
+            </p>
+          )}
         </div>
       </div>
     </div>

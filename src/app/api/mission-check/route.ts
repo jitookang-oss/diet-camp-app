@@ -9,11 +9,31 @@ function getKSTDateStr() {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const phone = searchParams.get("phone") ?? "";
-  const date = searchParams.get("date") ?? getKSTDateStr();
+  const weekStart = searchParams.get("weekStart");
 
-  if (!phone) return NextResponse.json({ checked: false });
+  if (!phone) return NextResponse.json({ checked: false, checkedDates: [] });
 
   const supabase = getSupabase();
+
+  if (weekStart) {
+    // 주간 체크 날짜 전체 조회
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+    const { data } = await supabase
+      .from("daily_checkins")
+      .select("check_date")
+      .eq("phone", phone)
+      .eq("type", "mission")
+      .gte("check_date", weekStart)
+      .lte("check_date", weekEndStr);
+
+    return NextResponse.json({ checkedDates: (data ?? []).map((r) => r.check_date) });
+  }
+
+  // 단일 날짜 체크 (하위 호환)
+  const date = searchParams.get("date") ?? getKSTDateStr();
   const { data } = await supabase
     .from("daily_checkins")
     .select("id")
@@ -51,10 +71,28 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     if (error.code === "23505") {
-      return NextResponse.json({ already: true, success: false, name: participant.name });
+      return NextResponse.json({ already: true, success: false });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, name: participant.name });
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(request: NextRequest) {
+  const body = await request.json().catch(() => ({}));
+  const { phone, date } = body as { phone?: string; date?: string };
+
+  if (!phone || !date) return NextResponse.json({ error: "필수 파라미터 누락" }, { status: 400 });
+
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("daily_checkins")
+    .delete()
+    .eq("phone", phone)
+    .eq("check_date", date)
+    .eq("type", "mission");
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
 }

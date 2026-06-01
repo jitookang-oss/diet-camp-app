@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadParticipant, saveParticipant, ParticipantData, getCurrentWeek } from "@/lib/store";
+import { loadParticipant, ParticipantData, getCurrentWeek } from "@/lib/store";
 import { bodyTypeInfo } from "@/lib/scoring";
-import { getCampDayInfo, getWeekCheckUnlockDate, isCheckWeekUnlocked } from "@/lib/missions";
+import { getCampDayInfo, getWeekCheckUnlockDate, isCheckWeekUnlocked, getWeekDates } from "@/lib/missions";
 import MissionDetailModal from "@/components/MissionDetailModal";
 import {
   LineChart,
@@ -29,8 +29,8 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [showBookmarkTip, setShowBookmarkTip] = useState(false);
   const [showMissionModal, setShowMissionModal] = useState(false);
-  const [todayMissionChecked, setTodayMissionChecked] = useState(false);
-  const [missionChecking, setMissionChecking] = useState(false);
+  const [weekCheckedDates, setWeekCheckedDates] = useState<string[]>([]);
+  const [weekToggling, setWeekToggling] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -41,30 +41,49 @@ export default function DashboardPage() {
     }
     setData(d);
     if ((d.weeklyRecords?.length ?? 0) === 0) setShowBookmarkTip(true);
-
-    // 오늘 미션 체크 여부 조회
-    const phone = d.basicInfo.phone;
-    if (phone) {
-      const today = getKSTDateStr();
-      fetch(`/api/mission-check?phone=${encodeURIComponent(phone)}&date=${today}`)
-        .then((r) => r.json())
-        .then((res) => { if (res.checked) setTodayMissionChecked(true); })
-        .catch(() => {});
-    }
   }, [router]);
 
-  async function handleTodayMissionCheck() {
-    if (!data?.basicInfo.phone || missionChecking || todayMissionChecked) return;
-    setMissionChecking(true);
-    const today = getKSTDateStr();
-    const res = await fetch("/api/mission-check", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: data.basicInfo.phone, date: today }),
-    });
+  useEffect(() => {
+    if (!data?.basicInfo.phone) return;
+    const { campWeek } = getCampDayInfo();
+    if (campWeek <= 0) return;
+    const weekStart = getWeekDates(campWeek)[0];
+    fetch(`/api/mission-check?phone=${encodeURIComponent(data.basicInfo.phone)}&weekStart=${weekStart}`)
+      .then((r) => r.json())
+      .then((res) => setWeekCheckedDates(res.checkedDates ?? []))
+      .catch(() => {});
+  }, [data]);
+
+  async function toggleMissionDate(date: string) {
+    if (!data?.basicInfo.phone || weekToggling) return;
+    setWeekToggling(date);
+    const isChecked = weekCheckedDates.includes(date);
+    if (isChecked) {
+      await fetch("/api/mission-check", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: data.basicInfo.phone, date }),
+      });
+      setWeekCheckedDates((prev) => prev.filter((d) => d !== date));
+    } else {
+      await fetch("/api/mission-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: data.basicInfo.phone, date }),
+      });
+      setWeekCheckedDates((prev) => [...prev, date]);
+    }
+    setWeekToggling(null);
+  }
+
+  async function reloadWeekChecks() {
+    if (!data?.basicInfo.phone) return;
+    const { campWeek } = getCampDayInfo();
+    if (campWeek <= 0) return;
+    const weekStart = getWeekDates(campWeek)[0];
+    const res = await fetch(`/api/mission-check?phone=${encodeURIComponent(data.basicInfo.phone)}&weekStart=${weekStart}`);
     const json = await res.json();
-    if (json.success || json.already) setTodayMissionChecked(true);
-    setMissionChecking(false);
+    setWeekCheckedDates(json.checkedDates ?? []);
   }
 
   if (!data) return null;
@@ -76,15 +95,10 @@ export default function DashboardPage() {
   const campInfo = getCampDayInfo();
   const { campWeek, currentMission } = campInfo;
 
-  // 이번 주 미션 달성 여부
-  const missionChecked = campWeek > 0 ? (data.missionChecks?.[campWeek] ?? false) : false;
-
-  function handleMissionCheck() {
-    if (!campWeek || !data) return;
-    const newChecks = { ...(data.missionChecks ?? {}), [campWeek]: !missionChecked };
-    saveParticipant({ missionChecks: newChecks });
-    setData({ ...data, missionChecks: newChecks });
-  }
+  // 이번 주 미션 달성 여부 (요일별 체크 기반)
+  const missionChecked = weekCheckedDates.length > 0;
+  const weekDates = campWeek > 0 ? getWeekDates(campWeek) : [];
+  const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
   // 주차별 잠금 상태
   const weekLocked = currentWeek <= 11 && !isCheckWeekUnlocked(currentWeek);
@@ -169,27 +183,48 @@ export default function DashboardPage() {
           </button>
         )}
 
-        {/* 오늘 미션 체크 */}
+        {/* 이번 주 미션 현황 */}
         {campWeek > 0 && data.basicInfo.phone && (
-          <div className={`card p-4 flex items-center gap-4 ${todayMissionChecked ? "bg-green-50 border-green-200" : ""}`}>
-            <div className="text-2xl">{todayMissionChecked ? "✅" : "🎯"}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-800">
-                {todayMissionChecked ? "오늘 미션 완료!" : "오늘 미션 수행했나요?"}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {todayMissionChecked ? "오늘도 잘 하셨어요 💪" : "매일 체크하면 관리자가 확인해요"}
-              </p>
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-bold text-gray-800">이번 주 미션 현황</p>
+              {weekCheckedDates.length > 0 && (
+                <span className="text-xs text-green-600 font-semibold">{weekCheckedDates.length}일 달성 💪</span>
+              )}
             </div>
-            {!todayMissionChecked && (
-              <button
-                onClick={handleTodayMissionCheck}
-                disabled={missionChecking}
-                className="flex-shrink-0 px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
-              >
-                {missionChecking ? "..." : "완료!"}
-              </button>
-            )}
+            <div className="grid grid-cols-7 gap-1">
+              {weekDates.map((date, i) => {
+                const isChecked = weekCheckedDates.includes(date);
+                const isToday = date === getKSTDateStr();
+                const isFuture = date > getKSTDateStr();
+                const isToggling = weekToggling === date;
+                const monthDay = date.slice(5).replace("-", "/");
+                return (
+                  <button
+                    key={date}
+                    onClick={() => !isFuture && toggleMissionDate(date)}
+                    disabled={isFuture || !!weekToggling}
+                    className={[
+                      "flex flex-col items-center py-2 rounded-xl transition-colors",
+                      isChecked
+                        ? "bg-green-100 border-2 border-green-400 text-green-700"
+                        : isFuture
+                        ? "bg-gray-50 text-gray-300 cursor-not-allowed"
+                        : isToday
+                        ? "bg-white border-2 border-gray-300 text-gray-500 hover:border-green-400"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200",
+                      isToggling ? "opacity-50" : "",
+                    ].join(" ")}
+                  >
+                    <span className="text-xs font-bold">{DAY_LABELS[i]}</span>
+                    <span className="text-[10px] mt-0.5 opacity-60">{monthDay}</span>
+                    <span className="mt-1 text-xs font-bold">
+                      {isChecked ? "✓" : isToggling ? "…" : "·"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -323,9 +358,8 @@ export default function DashboardPage() {
         <MissionDetailModal
           mission={currentMission}
           campWeek={campWeek}
-          checked={missionChecked}
-          onCheck={handleMissionCheck}
-          onClose={() => setShowMissionModal(false)}
+          phone={data.basicInfo.phone}
+          onClose={() => { setShowMissionModal(false); reloadWeekChecks(); }}
         />
       )}
     </main>

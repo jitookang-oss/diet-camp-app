@@ -94,6 +94,23 @@ export interface CampDayInfo {
   currentMission: Mission | null;
 }
 
+// 캠프 주차의 월~일 날짜 배열 (YYYY-MM-DD)
+export function getWeekDates(campWeek: number): string[] {
+  const base = new Date(
+    CAMP_START_DATE.getFullYear(),
+    CAMP_START_DATE.getMonth(),
+    CAMP_START_DATE.getDate()
+  );
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base);
+    d.setDate(base.getDate() + (campWeek - 1) * 7 + i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  });
+}
+
 // 주차별 체크인 잠금 해제 날짜 (2주차=6/7, 3주차=6/14, ...)
 export function getWeekCheckUnlockDate(checkWeek: number): Date {
   const date = new Date(CAMP_START_DATE);
