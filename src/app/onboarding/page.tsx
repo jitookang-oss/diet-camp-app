@@ -392,6 +392,12 @@ export default function OnboardingPage() {
               </div>
             </div>
 
+            {error && (
+              <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg mt-4">
+                {error}
+              </p>
+            )}
+
             <button onClick={handleNext} className="btn-primary mt-6">
               다음 →
             </button>
