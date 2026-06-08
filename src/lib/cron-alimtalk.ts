@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { sendAlimtalk, generateCheckinToken } from "./alimtalk";
-import { getCampDayInfo } from "./missions";
 import { supabase } from "./supabase";
 
 interface CronParams {
@@ -35,7 +34,10 @@ export async function handleCronAlimtalk({ request, templateEnvKey, checkinType,
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const { campWeek } = getCampDayInfo();
+  // KST 날짜 기준으로 주차 계산 (getCampDayInfo는 서버 UTC 기준이라 아침 알림톡 시 1주차 오류 발생)
+  const campStart = new Date("2026-06-01");
+  const daysFromStart = Math.floor((new Date(today).getTime() - campStart.getTime()) / (1000 * 60 * 60 * 24));
+  const campWeek = Math.min(Math.max(Math.floor(daysFromStart / 7) + 1, 1), 12);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://diet-camp-app.vercel.app";
 
   const results = [];
