@@ -42,7 +42,7 @@ export async function handleCronAlimtalk({ request, templateEnvKey, checkinType,
   for (const p of participants ?? []) {
     if (!p.phone) continue;
     const token = generateCheckinToken(p.phone, today, checkinType);
-    const url = `${baseUrl}/checkin?type=${checkinType}&date=${today}&phone=${encodeURIComponent(p.phone)}&token=${token}`;
+    const url = `${baseUrl}/c/${encodeURIComponent(p.phone)}/${checkinType}/${today}/${token}`;
     try {
       await sendAlimtalk({
         to: p.phone,
