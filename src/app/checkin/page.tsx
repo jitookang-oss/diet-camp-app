@@ -61,6 +61,7 @@ function CheckinContent() {
   const [status, setStatus] = useState<Status>("loading");
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const type = params.get("type") ?? "";
   const date = params.get("date") ?? "";
   const phone = params.get("phone") ?? "";
@@ -69,6 +70,7 @@ function CheckinContent() {
     const token = params.get("token");
 
     if (!type || !date || !phone || !token) {
+      setErrorMsg(`파라미터 누락 — type:${type || "없음"} date:${date || "없음"} phone:${phone ? "있음" : "없음"} token:${token ? "있음" : "없음"}`);
       setStatus("error");
       return;
     }
@@ -80,9 +82,15 @@ function CheckinContent() {
         setLabel(data.label ?? "");
         if (data.success) setStatus("success");
         else if (data.already) setStatus("already");
-        else setStatus("error");
+        else {
+          setErrorMsg(data.error ?? "알 수 없는 오류");
+          setStatus("error");
+        }
       })
-      .catch(() => setStatus("error"));
+      .catch((e) => {
+        setErrorMsg(`네트워크 오류: ${String(e)}`);
+        setStatus("error");
+      });
   }, [params, type, date, phone]);
 
   const icon = ICONS[type] ?? "✅";
@@ -150,9 +158,14 @@ function CheckinContent() {
   return (
     <div className="text-center py-16">
       <div className="text-6xl mb-6">❌</div>
-      <h1 className="text-2xl font-black text-gray-900 mb-2">링크가 유효하지 않아요</h1>
+      <h1 className="text-2xl font-black text-gray-900 mb-2">오류가 발생했어요</h1>
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-left">
+          <p className="text-xs text-red-600 font-mono break-all">{errorMsg}</p>
+        </div>
+      )}
       <p className="text-gray-500 mb-6">
-        링크가 만료됐거나 잘못된 접근이에요.
+        아래 오류 내용을 약사님께 전달해 주세요.
       </p>
       <a href="/" className="inline-block btn-secondary">
         홈으로 이동

@@ -16,20 +16,24 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get("token") ?? "";
 
   if (!type || !date || !phone || !token || !TYPE_LABELS[type]) {
-    return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
+    return NextResponse.json({ error: "잘못된 요청입니다.", debug: "missing_params", type, date, phone: phone ? "있음" : "없음", token: token ? "있음" : "없음" }, { status: 400 });
   }
 
   if (!verifyCheckinToken(phone, date, type, token)) {
-    return NextResponse.json({ error: "유효하지 않은 링크입니다." }, { status: 403 });
+    return NextResponse.json({ error: "토큰 검증 실패 — 링크가 유효하지 않거나 만료됐어요.", debug: "token_mismatch" }, { status: 403 });
   }
 
   const supabase = getSupabase();
 
-  const { data: participant } = await supabase
+  const { data: participant, error: participantError } = await supabase
     .from("participants")
     .select("name")
     .eq("phone", phone)
     .single();
+
+  if (participantError && participantError.code !== "PGRST116") {
+    return NextResponse.json({ error: `참여자 조회 오류: ${participantError.message}`, debug: "participant_query_error", code: participantError.code }, { status: 500 });
+  }
 
   const { error } = await supabase.from("daily_checkins").insert({
     phone,
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
     if (error.code === "23505") {
       return NextResponse.json({ already: true, success: false, name: participant?.name, label: TYPE_LABELS[type] });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: `DB 저장 오류: ${error.message}`, debug: "insert_error", code: error.code }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, name: participant?.name, label: TYPE_LABELS[type] });
