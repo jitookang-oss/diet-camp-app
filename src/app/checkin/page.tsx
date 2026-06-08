@@ -479,6 +479,14 @@ export default function CheckinPage() {
             </div>
           </div>
         )}
+
+        {/* 대시보드 이동 */}
+        <a
+          href="/dashboard"
+          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors"
+        >
+          📊 내 대시보드 보기
+        </a>
       </div>
     </main>
   );

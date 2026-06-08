@@ -137,6 +137,12 @@ export default function DashboardPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900">{basicInfo.name}님의 대시보드</h1>
           <p className="text-sm text-gray-500 mt-1">현재 {currentWeek - 1}주차 진행 중</p>
+          <a
+            href="/checkin"
+            className="inline-flex items-center gap-1.5 mt-3 bg-green-600 text-white text-sm font-semibold px-5 py-2 rounded-full hover:bg-green-700 transition-colors"
+          >
+            ✅ 오늘 체크인
+          </a>
         </div>
 
         {/* 즐겨찾기 안내 */}
