@@ -105,6 +105,7 @@ export default function CheckinPage() {
       }
       setHub(data);
       setSupplementsInput(data.participant?.my_supplements ?? "");
+      if (!data.participant?.my_supplements) setEditingSupplements(true);
       setPhase("ready");
     } finally {
       setHubLoading(false);
@@ -112,21 +113,28 @@ export default function CheckinPage() {
   }
 
   async function handleLookup() {
-    if (!nameInput.trim()) return;
+    const last4 = nameInput.trim();
+    if (!/^\d{4}$/.test(last4)) {
+      setLookupError("숫자 4자리를 입력해주세요.");
+      return;
+    }
     setLookupError("");
     setLookupLoading(true);
     try {
       const { data } = await supabase
         .from("participants")
         .select("phone")
-        .eq("name", nameInput.trim())
-        .maybeSingle();
-      if (!data?.phone) {
-        setLookupError("등록된 참여자를 찾을 수 없어요. 인스타그램 아이디를 다시 확인해주세요.");
+        .like("phone", `%${last4}`);
+      if (!data || data.length === 0) {
+        setLookupError("등록된 참여자를 찾을 수 없어요. 전화번호를 다시 확인해주세요.");
         return;
       }
-      setPhone(data.phone);
-      loadHub(data.phone);
+      if (data.length > 1) {
+        setLookupError("중복된 번호가 있어요. 운영자에게 문의해주세요.");
+        return;
+      }
+      setPhone(data[0].phone);
+      loadHub(data[0].phone);
     } finally {
       setLookupLoading(false);
     }
@@ -222,17 +230,18 @@ export default function CheckinPage() {
             </p>
             <h1 className="text-xl font-black text-gray-900">체크인</h1>
             <p className="text-sm text-gray-500 mt-2">
-              인스타그램 아이디(@없이)를 입력해주세요
+              전화번호 뒤 4자리를 입력해주세요
             </p>
           </div>
-          <KoreanInput
+          <input
+            type="tel"
+            inputMode="numeric"
+            maxLength={4}
             value={nameInput}
-            onChange={setNameInput}
-            placeholder="예: bora__magic"
-            className="input-field w-full mb-3"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleLookup();
-            }}
+            onChange={(e) => setNameInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            onKeyDown={(e) => { if (e.key === "Enter") handleLookup(); }}
+            placeholder="예: 1234"
+            className="input-field w-full mb-3 text-center text-2xl tracking-widest font-bold"
           />
           {lookupError && (
             <p className="text-red-500 text-xs mb-3 text-center leading-relaxed">
