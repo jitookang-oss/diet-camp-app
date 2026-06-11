@@ -816,13 +816,47 @@ interface FoodPhoto {
   photo_url: string;
 }
 
+interface WeeklyCheckin {
+  phone: string;
+  check_date: string;
+}
+
+const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+
+function getWeekDays(todayStr: string): string[] {
+  const today = new Date(todayStr + "T00:00:00Z");
+  const day = today.getUTCDay();
+  const daysFromMonday = day === 0 ? 6 : day - 1;
+  const monday = new Date(today.getTime() - daysFromMonday * 24 * 60 * 60 * 1000);
+  return Array.from({ length: 7 }, (_, i) =>
+    new Date(monday.getTime() + i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  );
+}
+
 function CheckinTab({ participants }: { participants: Participant[] }) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [date, setDate] = useState(todayStr);
   const [checkins, setCheckins] = useState<CheckinRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [foodPhotos, setFoodPhotos] = useState<FoodPhoto[]>([]);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
+  const [weeklyData, setWeeklyData] = useState<WeeklyCheckin[]>([]);
+  const [weekLoading, setWeekLoading] = useState(false);
+
+  const weekDays = getWeekDays(todayStr);
+  const daysElapsed = weekDays.filter((d) => d <= todayStr).length;
+  const phoneParticipants = participants.filter((p) => p.phone);
+
+  async function fetchWeekly() {
+    setWeekLoading(true);
+    const { data } = await supabase
+      .from("daily_checkins")
+      .select("phone, check_date")
+      .gte("check_date", weekDays[0])
+      .lte("check_date", todayStr);
+    setWeeklyData((data as WeeklyCheckin[]) ?? []);
+    setWeekLoading(false);
+  }
 
   async function fetchCheckins(d: string) {
     setLoading(true);
@@ -835,6 +869,11 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
     setLoading(false);
   }
 
+  useEffect(() => {
+    fetchWeekly();
+    fetchCheckins(todayStr);
+  }, []);
+
   useEffect(() => { fetchCheckins(date); }, [date]);
 
   const checkinSet = new Set(checkins.map((c) => `${c.phone}::${c.type}`));
@@ -842,12 +881,67 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
   const summary = CHECKIN_TYPES.map((t) => ({
     ...t,
     count: checkins.filter((c) => c.type === t.key).length,
-    total: participants.filter((p) => p.phone).length,
+    total: phoneParticipants.length,
   }));
 
   return (
     <div>
-      {/* 날짜 선택 + 새로고침 */}
+      {/* 이번 주 참여 현황 */}
+      <div className="mb-7">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">📅 이번 주 참여 현황</h3>
+          <button onClick={fetchWeekly} className="text-xs text-gray-400 hover:text-gray-600">새로고침</button>
+        </div>
+        {weekLoading ? (
+          <div className="text-center py-8 text-gray-400 text-sm">불러오는 중...</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {phoneParticipants.map((p) => {
+              const myData = weeklyData.filter((w) => w.phone === p.phone);
+              const checkedDaySet = new Set(myData.map((w) => w.check_date));
+              const daysCount = checkedDaySet.size;
+              const itemsCount = myData.length;
+              const maxItems = daysElapsed * CHECKIN_TYPES.length;
+              const pct = maxItems > 0 ? Math.round((itemsCount / maxItems) * 100) : 0;
+              const barColor = pct >= 70 ? "bg-green-500" : pct >= 40 ? "bg-yellow-400" : "bg-red-400";
+              const textColor = pct >= 70 ? "text-green-600" : pct >= 40 ? "text-yellow-600" : "text-red-500";
+              return (
+                <div key={p.id} className="card p-4">
+                  <div className="font-bold text-gray-800 text-sm mb-3 truncate">{p.name}</div>
+                  <div className="flex gap-1 mb-1">
+                    {weekDays.map((d, i) => {
+                      const isFuture = d > todayStr;
+                      const isChecked = checkedDaySet.has(d);
+                      return (
+                        <div key={d} className="flex flex-col items-center flex-1">
+                          <div className={`w-full h-2 rounded-full mb-1 ${
+                            isFuture ? "bg-gray-100" : isChecked ? "bg-green-500" : "bg-red-200"
+                          }`} />
+                          <span className="text-[9px] text-gray-400">{DAY_LABELS[i]}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-xs text-gray-500">
+                      <span className="font-bold text-gray-800">{daysCount}</span>/7일
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      <span className="font-bold text-gray-800">{itemsCount}</span>/{maxItems}항목
+                    </span>
+                    <span className={`text-xs font-bold ${textColor}`}>{pct}%</span>
+                  </div>
+                  <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 날짜별 상세 */}
       <div className="flex items-center gap-3 mb-5">
         <input
           type="date"
@@ -857,7 +951,7 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
           className="input-field w-auto px-3 py-2 text-sm"
         />
         <button
-          onClick={() => fetchCheckins(date)}
+          onClick={() => { fetchCheckins(date); fetchWeekly(); }}
           className="btn-secondary text-sm px-4 py-2"
         >
           새로고침
@@ -923,45 +1017,44 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
       {/* 참여자별 체크인 현황 테이블 */}
       {loading ? (
         <div className="text-center py-16 text-gray-400">불러오는 중...</div>
-      ) : participants.filter((p) => p.phone).length === 0 ? (
+      ) : phoneParticipants.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p>전화번호가 등록된 참여자가 없어요</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[400px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">인스타 ID</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">전화번호</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase sticky left-0 bg-gray-50 z-10">이름</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">전화번호</th>
                 {CHECKIN_TYPES.map((t) => (
-                  <th key={t.key} className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase">
-                    {t.icon} {t.label}
+                  <th key={t.key} className="text-center py-3 px-3 text-xs font-semibold text-gray-500">
+                    <span className="hidden sm:inline">{t.icon} {t.label}</span>
+                    <span className="sm:hidden text-base">{t.icon}</span>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {participants
-                .filter((p) => p.phone)
-                .map((p) => (
-                  <tr key={p.id} className="border-b border-gray-100 last:border-0">
-                    <td className="py-3 px-4 font-semibold text-gray-800 text-sm">{p.name}</td>
-                    <td className="py-3 px-4 text-sm text-gray-400">{p.phone}</td>
-                    {CHECKIN_TYPES.map((t) => {
-                      const done = checkinSet.has(`${p.phone}::${t.key}`);
-                      return (
-                        <td key={t.key} className="py-3 px-4 text-center">
-                          {done ? (
-                            <span className="inline-flex items-center justify-center w-7 h-7 bg-green-100 text-green-600 rounded-full text-sm font-bold">✓</span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center w-7 h-7 bg-gray-100 text-gray-300 rounded-full text-sm">–</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+              {phoneParticipants.map((p) => (
+                <tr key={p.id} className="border-b border-gray-100 last:border-0">
+                  <td className="py-3 px-4 font-semibold text-gray-800 text-sm sticky left-0 bg-white z-10">{p.name}</td>
+                  <td className="py-3 px-4 text-sm text-gray-400 hidden sm:table-cell">{p.phone}</td>
+                  {CHECKIN_TYPES.map((t) => {
+                    const done = checkinSet.has(`${p.phone}::${t.key}`);
+                    return (
+                      <td key={t.key} className="py-3 px-3 text-center">
+                        {done ? (
+                          <span className="inline-flex items-center justify-center w-7 h-7 bg-green-100 text-green-600 rounded-full text-sm font-bold">✓</span>
+                        ) : (
+                          <span className="inline-flex items-center justify-center w-7 h-7 bg-gray-100 text-gray-300 rounded-full text-sm">–</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
