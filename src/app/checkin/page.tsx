@@ -626,13 +626,13 @@ export default function CheckinPage() {
                     <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
                       {msg.content}
                     </p>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs text-gray-400">{formatMsgDate(msg.created_at)}</span>
+                    <div className="mt-4">
+                      <span className="text-xs text-gray-400 block mb-3">{formatMsgDate(msg.created_at)}</span>
                       <button
                         onClick={() => confirmMessage(msg.id)}
-                        className="text-xs bg-green-100 text-green-700 font-semibold px-4 py-1.5 rounded-xl"
+                        className="w-full py-3 bg-green-500 hover:bg-green-600 active:scale-[0.98] text-white font-bold text-sm rounded-2xl transition-all"
                       >
-                        ✓ 확인했어요
+                        💪 감사히 읽었어요!
                       </button>
                     </div>
                   </div>
