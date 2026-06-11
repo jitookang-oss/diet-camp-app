@@ -3,7 +3,7 @@
 > 클로드 AI가 코딩 작업 시 **반드시 먼저 읽어야 하는** 기획 문서입니다.  
 > **브랜드 주체**: @보라매직 (이보라 약사 / 이지약국 운영)  
 > **서비스 노출 브랜드**: 보라매직 (이지약국은 내부 운영 주체, 사용자에게는 노출 최소화)  
-> **최종 업데이트: 2026-06-11 (4차)**
+> **최종 업데이트: 2026-06-11 (5차)**
 
 ---
 
@@ -47,7 +47,9 @@
 | DB | Supabase (PostgreSQL) |
 | 로컬 캐시 | localStorage (오프라인 동작 보장) |
 | 알림톡 | Solapi SDK (`@solapi/message-service`) |
+| 이미지 압축 | browser-image-compression |
 | PDF | html2canvas + jsPDF |
+| 파일 스토리지 | Supabase Storage (`food-photos` 버킷, public) |
 | 배포 | Vercel (cron 포함) |
 
 ---
@@ -124,6 +126,15 @@
 
 **대시보드 이동 링크:** 하단에 대시보드로 이동하는 링크 표시
 
+### 아침 식사 사진 업로드
+- 체크리스트 카드 아래 "오늘의 아침 식사 📸" 별도 카드
+- 사진 없음: 점선 버튼 → 카메라 or 사진첩 선택
+- 사진 있음: 썸네일 + ✓ 완료 배지 + "다시 찍기" 버튼 (교체 가능)
+- 업로드 전 자동 압축: 최대 500KB, 1080px (`browser-image-compression`)
+- 자정~오전 2시 유예 시간 중 업로드도 어제 날짜 기준으로 저장
+- 저장: Supabase Storage `food-photos` 버킷 + `food_photos` DB 테이블
+- 7일 경과 사진 매일 새벽 3시(KST) 자동 삭제 (스토리지 + DB 동시)
+
 ### `/c/[phone]/[type]/[date]/[token]` — 알림톡 딥링크 체크인
 
 > 알림톡 발송 시 사용자별로 생성되는 고유 URL. HMAC 토큰 서버사이드 검증.
@@ -150,6 +161,7 @@
   - 참여자 삭제 버튼
 - **체크인 현황 탭:**
   - 날짜 선택 → 당일 체크인 내역 조회 (영양제/점심걷기/저녁운동/주간미션)
+  - 해당 날짜 아침 식사 사진 그리드 표시 (업로드한 참여자만) — 클릭 시 확대
   - **주간 요약 뷰 (신규 추가 예정):** 참여자(행) × 4항목(열) 형태로 이번 주 달성률 한눈에 파악
 
 ### `/reset` — 데이터 초기화 페이지
@@ -430,6 +442,23 @@ created_at (timestamptz)
 UNIQUE(phone, check_date, type)
 ```
 
+### `food_photos` 테이블
+```
+id (uuid, PK)
+phone (text)
+photo_date (date)
+photo_url (text) — Supabase Storage 공개 URL
+created_at (timestamptz)
+UNIQUE(phone, photo_date) — 하루 1장 (업로드 시 교체)
+```
+
+### Supabase Storage
+```
+버킷명: food-photos (public)
+경로:   {photo_date}/{phone_숫자만}-{timestamp}.jpg
+보존:   7일 후 자동 삭제 (매일 새벽 3시 KST 크론)
+```
+
 ---
 
 ## 환경 변수
@@ -476,6 +505,7 @@ src/
 │       ├── invite/route.ts           # 초대 링크 검증 API
 │       ├── checkin/route.ts          # 구 체크인 API (레거시, 디버그 로그 추가됨)
 │       ├── daily-checkin/route.ts    # 체크인 허브 API (GET현황/POST체크/DELETE해제)
+│       ├── food-photo/route.ts       # 식사 사진 API (POST업로드/GET조회)
 │       ├── my-supplements/route.ts   # 영양제 정보 저장 API (PATCH)
 │       ├── mission-check/route.ts    # 미션 체크 API (GET주간/POST체크/DELETE해제)
 │       ├── admin/
@@ -483,7 +513,8 @@ src/
 │       └── cron/
 │           ├── morning/route.ts      # 아침 크론 (→ cron-alimtalk.ts)
 │           ├── lunch/route.ts        # 점심 크론
-│           └── evening/route.ts      # 저녁 크론
+│           ├── evening/route.ts      # 저녁 크론
+│           └── cleanup-photos/route.ts # 식사 사진 7일 자동 삭제 크론
 ├── lib/
 │   ├── store.ts                      # localStorage + Supabase 동기화
 │   ├── scoring.ts                    # 점수 계산 + 체질 분류 + 영양제 추천
@@ -511,6 +542,7 @@ src/
 7. **weeklyRecords:** localStorage에서 로드 시 undefined 가능 → `data.weeklyRecords ?? []` 필수
 8. **KST 날짜:** `new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10)` 사용
 9. **배포:** `vercel --prod` (또는 git push → Vercel 자동 배포)
+10. **식사 사진 업로드:** 클라이언트에서 `browser-image-compression`으로 압축 후 `/api/food-photo`로 FormData 전송 — `"use client"` 파일에서만 사용할 것
 
 ---
 
@@ -545,6 +577,7 @@ src/
 | `participants.my_supplements` 컬럼 추가 | 2026-06-08 |
 | 알림톡 cron 재활성화 (딥링크 `/c/` URL 방식으로 전환) | 2026-06-08 |
 | 체크인 ↔ 대시보드 상호 이동 링크 추가 | 2026-06-08 |
+| 아침 식사 사진 업로드 기능 추가 (체크인 페이지 + 관리자 조회 + 7일 자동 삭제) | 2026-06-11 |
 
 ---
 
