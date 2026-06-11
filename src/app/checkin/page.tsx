@@ -69,8 +69,27 @@ function KoreanTextarea({
   );
 }
 
+function getCountdownMinutes(): number | null {
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const h = kstNow.getUTCHours();
+  const m = kstNow.getUTCMinutes();
+  if (h >= 2 && h < 22) return null;
+  const minutesPast22 = h >= 22 ? (h - 22) * 60 + m : (h + 2) * 60 + m;
+  return Math.max(0, 240 - minutesPast22);
+}
+
+function formatCountdown(minutes: number): string {
+  if (minutes >= 60) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}시간 ${m}분 뒤에 체크인이 마감됩니다` : `${h}시간 뒤에 체크인이 마감됩니다`;
+  }
+  return `${minutes}분 뒤에 체크인이 마감됩니다`;
+}
+
 export default function CheckinPage() {
   const [phase, setPhase] = useState<"init" | "identify" | "ready">("init");
+  const [countdownMinutes, setCountdownMinutes] = useState<number | null>(null);
   const [phone, setPhone] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [lookupError, setLookupError] = useState("");
@@ -81,6 +100,13 @@ export default function CheckinPage() {
   const [supplementsInput, setSupplementsInput] = useState("");
   const [savingSupplements, setSavingSupplements] = useState(false);
   const [toggling, setToggling] = useState<CheckinType | null>(null);
+
+  useEffect(() => {
+    function tick() { setCountdownMinutes(getCountdownMinutes()); }
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const invitePhone = localStorage.getItem("invite_phone");
@@ -269,6 +295,8 @@ export default function CheckinPage() {
   const doneCount = Object.values(today).filter(Boolean).length;
   const mySupplements = participant.my_supplements ?? "";
 
+  const isGracePeriod = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours() < 2;
+
   const [y, m, d] = hub.todayDate.split("-");
   const todayLabel = new Date(
     Number(y),
@@ -288,7 +316,18 @@ export default function CheckinPage() {
           <h1 className="text-2xl font-black text-gray-900 mt-1">
             {participant.name}님 👋
           </h1>
-          <p className="text-sm text-gray-400 mt-1">{todayLabel}</p>
+          <p className="text-sm text-gray-400 mt-1">
+            {todayLabel}{isGracePeriod && " (어제)"}
+          </p>
+          {countdownMinutes !== null && (
+            <div className={`mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full ${
+              countdownMinutes < 60
+                ? "bg-red-100 text-red-600"
+                : "bg-amber-100 text-amber-700"
+            }`}>
+              ⏰ {formatCountdown(countdownMinutes)}
+            </div>
+          )}
           {doneCount === 4 ? (
             <div className="mt-3 inline-block bg-green-100 text-green-700 font-bold text-sm px-5 py-2 rounded-full">
               🎉 오늘 모두 완료! 정말 잘하셨어요!
@@ -303,7 +342,7 @@ export default function CheckinPage() {
         {/* 체크리스트 */}
         <div className="card p-5">
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-            오늘의 체크리스트
+            {isGracePeriod ? "어제 체크리스트" : "오늘의 체크리스트"}
           </h2>
           <div className="space-y-3">
             {ITEMS.map(({ type, icon, label }) => {

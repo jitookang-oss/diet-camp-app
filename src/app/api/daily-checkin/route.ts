@@ -3,7 +3,12 @@ import { getSupabase } from "@/lib/supabase-server";
 import { getWeekDates } from "@/lib/missions";
 
 function getKSTDateStr() {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  // 자정~오전 2시: 어제 날짜 기준 (유예 시간)
+  if (kstNow.getUTCHours() < 2) {
+    return new Date(kstNow.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
+  return kstNow.toISOString().slice(0, 10);
 }
 
 function getKSTCampWeek(today: string): number {

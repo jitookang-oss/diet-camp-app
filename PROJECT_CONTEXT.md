@@ -3,7 +3,7 @@
 > 클로드 AI가 코딩 작업 시 **반드시 먼저 읽어야 하는** 기획 문서입니다.  
 > **브랜드 주체**: @보라매직 (이보라 약사 / 이지약국 운영)  
 > **서비스 노출 브랜드**: 보라매직 (이지약국은 내부 운영 주체, 사용자에게는 노출 최소화)  
-> **최종 업데이트: 2026-06-08 (3차)**
+> **최종 업데이트: 2026-06-11 (4차)**
 
 ---
 
@@ -103,31 +103,35 @@
 - 날짜 잠금 체크 → 미해제 시 `/dashboard`로 돌려보냄
 - 해제됐으면 적절한 `/survey?week=N`으로 이동
 
-### `/checkin` — 체크인 페이지 (개편 예정)
+### `/checkin` — 체크인 허브 (알림톡 고정 링크)
 
-> ⚠️ 기존 URL 파라미터 방식(token/phone/date/type)에서 **자기기록형 체크리스트**로 전면 개편 예정.  
-> 알림톡 버튼 URL은 `https://diet-camp-app.vercel.app/checkin` 고정 — 템플릿 변경 불필요.
+> 알림톡 버튼 URL은 `https://diet-camp-app.vercel.app/checkin` 고정값. URL 파라미터 없음.
 
-**사용자 식별:** localStorage의 phone → 자동 식별. 없으면 인스타 아이디 입력 유도.
+**사용자 식별:** localStorage의 phone → 자동 식별. 없으면 전화번호 뒤 4자리 입력으로 조회.
 
 **섹션 1 — 오늘의 체크리스트 (4항목)**
-- ① 아침 영양제: 본인이 저장한 영양제 이름 표시. 미입력 시 "영양제 정보 입력하기" 유도
+- ① 아침 영양제: `participants.my_supplements`에 저장된 영양제 이름 표시. 미입력 시 입력창 자동 오픈
 - ② 점심 걷기
 - ③ 저녁 운동스낵
-- ④ 이번 주 미션: 해당 주차 미션명 표시 (예: "식후 10분 안에 10분 걷기")
-- 체크/해제 → `daily_checkins` 테이블 저장 (기존 supplement/lunch_walk/evening_exercise/mission 타입 활용)
+- ④ 이번 주 미션: 해당 주차 미션명 표시
+- 체크/해제 토글 → `/api/daily-checkin` POST/DELETE → `daily_checkins` 저장 (오늘 KST 날짜 기준)
 
 **섹션 2 — 이번 주 달성률 (4항목 개별)**
-- 영양제 N/7 · 걷기 N/7 · 운동 N/7 · 미션 N/7 형태로 각각 표시
-- 동기부여 시각화 목적
+- 영양제 N/7 · 걷기 N/7 · 운동 N/7 · 미션 N/7 형태 표시
 
 **섹션 3 — 주간 기록 알림 (조건부)**
 - 이번 주 설문·몸무게 미입력 시에만 표시: "N주차 기록이 아직 없어요 → 지금 하기" (→ `/weekly`)
-- 완료 시 숨김
 
-**영양제 정보 저장:**
-- `participants.my_supplements` (text) 컬럼 신규 추가
-- 한 번 저장하면 유지, 수정 버튼으로 편집 가능
+**대시보드 이동 링크:** 하단에 대시보드로 이동하는 링크 표시
+
+### `/c/[phone]/[type]/[date]/[token]` — 알림톡 딥링크 체크인
+
+> 알림톡 발송 시 사용자별로 생성되는 고유 URL. HMAC 토큰 서버사이드 검증.
+
+- URL 구조: `/c/{phone}/{type}/{date}/{token}`
+- 서버 컴포넌트 (`force-dynamic`): 토큰 검증 → Supabase 직접 삽입 → 결과 표시
+- 성공/이미완료/오류 상태 표시
+- 저녁 운동(`evening_exercise`) 완료 시: 주간 미션 체크 버튼 추가 노출 (`MissionCheckButton`)
 
 ### `/admin` — 관리자 페이지 (약사 전용)
 - 비밀번호 로그인 (`NEXT_PUBLIC_ADMIN_PASSWORD`)
@@ -164,28 +168,17 @@
 | 낮 12:30 | 03:30 | 점심 걷기 | `lunch_walk` |
 | 저녁 7시 | 10:00 | 저녁 운동 | `evening_exercise` |
 
-> ⚠️ **현재 cron 중단 중** (2026-06-08~): 체크인 링크 방식 개편 작업 전까지 자동 발송 비활성화. `vercel.json`의 `crons` 배열이 비어 있음.
-
 ### 보안
 - 크론 API: `Authorization: Bearer {CRON_SECRET}` 헤더 검증
-- 체크인 링크: HMAC-SHA256(`phone:date:type` + `CHECKIN_SECRET`) 앞 16자리
+- 딥링크 `/c/` 체크인: HMAC-SHA256(`phone:date:type` + `CHECKIN_SECRET`) 앞 16자리
 - 중복 방지: Supabase `unique(phone, check_date, type)` 제약
 
-### 체크인 링크 개편 계획 (미구현)
+### 알림톡 링크 구조
 
-**현재 문제:**
-- 솔라피 알림톡 템플릿에 버튼 URL이 고정값(`https://diet-camp-app.vercel.app/checkin`)으로 등록되어 있음
-- 코드에서 사용자별 동적 URL을 생성해서 넘기고 있지만, 템플릿 고정값에 의해 무시됨
-
-**확정된 방향 (방향 A — 사용자별 고유 토큰):**
-- 참여자 테이블에 `checkin_token` 컬럼 추가 (UUID, 온보딩 시 발급, 영구 고정)
-- 알림톡 버튼 URL: `https://diet-camp-app.vercel.app/checkin?u={checkin_token}`
-- 체크인 페이지: 토큰으로 참여자 조회 → 현재 KST 시간으로 체크인 타입 자동 판별 → DB 저장
-- 솔라피 템플릿 버튼 URL을 변수(`#{체크인링크}`)로 재등록 필요 (카카오 재검수 필요할 수 있음)
-
-**코딩 전 확인 필요:**
-1. 솔라피 대시보드에서 현재 템플릿 버튼 URL 방식 확인 (고정 vs 변수)
-2. 템플릿 재등록 시 카카오 재검수 필요 여부 확인
+- **알림톡 버튼 URL:** 솔라피 템플릿에 고정값(`https://diet-camp-app.vercel.app/checkin`)으로 등록됨
+- **딥링크 URL (`/c/`):** `cron-alimtalk.ts`에서 사용자별로 생성 → 알림톡 메시지 본문 또는 변수로 포함
+  - 형태: `https://diet-camp-app.vercel.app/c/{phone}/{type}/{date}/{token}`
+  - 토큰: `generateCheckinToken(phone, date, type)` — HMAC-SHA256 앞 16자리
 
 ---
 
@@ -422,6 +415,7 @@ week1_answers (jsonb), week1_scores (jsonb)
 weekly_records (jsonb[]) → [{week, weight, answers, scores, completedAt}]
 week12_answers (jsonb), week12_scores (jsonb)
 is_onboarded (bool)
+my_supplements (text) — 참여자 본인 영양제 정보 (체크인 페이지에서 입력·수정)
 updated_at (timestamptz)
 ```
 
@@ -472,12 +466,17 @@ src/
 │   │   └── PdfReport.tsx             # PDF 캡처 전용 레이아웃
 │   ├── dashboard/page.tsx            # 참여자 대시보드
 │   ├── weekly/page.tsx               # 주차 라우팅 (redirect + 날짜 잠금)
-│   ├── checkin/page.tsx              # 알림톡 체크인 페이지
+│   ├── checkin/page.tsx              # 자기기록형 체크인 허브 (알림톡 고정 링크)
+│   ├── c/[phone]/[type]/[date]/[token]/
+│   │   ├── page.tsx                  # 알림톡 딥링크 체크인 (서버 컴포넌트, 토큰 검증)
+│   │   └── MissionCheckButton.tsx    # 저녁 체크인 후 미션 체크 버튼
 │   ├── admin/page.tsx                # 관리자 페이지
 │   ├── reset/page.tsx                # localStorage 초기화
 │   └── api/
 │       ├── invite/route.ts           # 초대 링크 검증 API
-│       ├── checkin/route.ts          # 체크인 API (토큰 검증 + DB 저장)
+│       ├── checkin/route.ts          # 구 체크인 API (레거시, 디버그 로그 추가됨)
+│       ├── daily-checkin/route.ts    # 체크인 허브 API (GET현황/POST체크/DELETE해제)
+│       ├── my-supplements/route.ts   # 영양제 정보 저장 API (PATCH)
 │       ├── mission-check/route.ts    # 미션 체크 API (GET주간/POST체크/DELETE해제)
 │       ├── admin/
 │       │   └── participants/route.ts # 참여자 등록/삭제 API
@@ -491,7 +490,7 @@ src/
 │   ├── missions.ts                   # 주차 미션 + D-day + 날짜 잠금 + 주간날짜
 │   ├── mission-descriptions.ts       # 12주 미션 상세 설명 (단락 배열)
 │   ├── alimtalk.ts                   # Solapi 알림톡 발송 + 토큰 생성/검증
-│   ├── cron-alimtalk.ts              # 크론 공통 핸들러 (3개 크론 공유)
+│   ├── cron-alimtalk.ts              # 크론 공통 핸들러 (3개 크론 공유, /c/ URL 생성)
 │   ├── supabase.ts                   # Supabase 클라이언트 (Proxy 패턴)
 │   └── supabase-server.ts            # 서버용 Supabase (getSupabase())
 └── components/
@@ -539,7 +538,13 @@ src/
 | 요일별 미션 체크 (월~일 개별 토글, API 저장) | 2026-06-01 |
 | 관리자 참여자 상세 조회 (차트·설문 답변·호르몬 증상) | 2026-06-01 |
 | 호르몬 변화 관련 문항으로 네이밍 전환 (갱년기 → 호르몬 변화) | 2026-06-01 |
-| 알림톡 자동 발송 cron 중단 (체크인 링크 개편 전까지) | 2026-06-08 |
+| `/checkin` 자기기록형 체크인 허브로 전면 개편 (localStorage 식별 + 4항목 토글 + 주간 달성률) | 2026-06-08 |
+| `/c/[phone]/[type]/[date]/[token]` 알림톡 딥링크 체크인 라우트 신규 추가 | 2026-06-08 |
+| `/api/daily-checkin` 체크인 허브 API 신규 추가 (GET/POST/DELETE) | 2026-06-08 |
+| `/api/my-supplements` 영양제 정보 저장 API 신규 추가 (PATCH) | 2026-06-08 |
+| `participants.my_supplements` 컬럼 추가 | 2026-06-08 |
+| 알림톡 cron 재활성화 (딥링크 `/c/` URL 방식으로 전환) | 2026-06-08 |
+| 체크인 ↔ 대시보드 상호 이동 링크 추가 | 2026-06-08 |
 
 ---
 
@@ -549,5 +554,4 @@ src/
 |------|------|
 | 기기 변경 시 Supabase → localStorage 데이터 복원 | 현재 기기 잃으면 데이터 접근 불가 |
 | 관리자 엑셀 내보내기 | 전체 참여자 데이터 xlsx 다운로드 |
-| **`/checkin` 페이지 전면 개편** | 자기기록형 체크리스트 4항목 + 이번 주 달성률 + 주간 기록 알림. `participants.my_supplements` 컬럼 추가 필요 |
 | **관리자 체크인 주간 요약 뷰** | 참여자별 4항목 이번 주 달성률 표 추가 |
