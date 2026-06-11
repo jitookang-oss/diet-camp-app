@@ -632,7 +632,7 @@ export default function CheckinPage() {
                         onClick={() => confirmMessage(msg.id)}
                         className="w-full py-3 bg-green-500 hover:bg-green-600 active:scale-[0.98] text-white font-bold text-sm rounded-2xl transition-all"
                       >
-                        💪 감사히 읽었어요!
+                        확인했어요 !!
                       </button>
                     </div>
                   </div>
