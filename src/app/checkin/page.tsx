@@ -22,6 +22,17 @@ interface HubData {
   campWeek: number;
 }
 
+interface Message {
+  id: string;
+  content: string;
+  created_at: string;
+}
+
+function formatMsgDate(isoStr: string): string {
+  const d = new Date(new Date(isoStr).getTime() + 9 * 60 * 60 * 1000);
+  return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
+}
+
 const ITEMS: { type: CheckinType; icon: string; label: string }[] = [
   { type: "supplement", icon: "💊", label: "아침 영양제" },
   { type: "lunch_walk", icon: "🚶", label: "점심 걷기" },
@@ -105,6 +116,8 @@ export default function CheckinPage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [msgOpen, setMsgOpen] = useState(false);
 
   useEffect(() => {
     function tick() { setCountdownMinutes(getCountdownMinutes()); }
@@ -124,6 +137,23 @@ export default function CheckinPage() {
       setPhase("identify");
     }
   }, []);
+
+  async function loadMessages(p: string) {
+    const res = await fetch(`/api/message?phone=${encodeURIComponent(p)}`);
+    const data = await res.json();
+    const msgs: Message[] = data.messages ?? [];
+    setMessages(msgs);
+    if (msgs.length > 0) setMsgOpen(true);
+  }
+
+  async function confirmMessage(id: string) {
+    await fetch(`/api/message?id=${id}`, { method: "DELETE" });
+    setMessages((prev) => {
+      const next = prev.filter((m) => m.id !== id);
+      if (next.length === 0) setMsgOpen(false);
+      return next;
+    });
+  }
 
   async function loadPhoto(p: string, date: string) {
     const res = await fetch(`/api/food-photo?phone=${encodeURIComponent(p)}&date=${date}`);
@@ -184,6 +214,7 @@ export default function CheckinPage() {
       if (!data.participant?.my_supplements) setEditingSupplements(true);
       setPhase("ready");
       loadPhoto(p, data.todayDate);
+      loadMessages(p);
     } finally {
       setHubLoading(false);
     }
@@ -570,6 +601,46 @@ export default function CheckinPage() {
             <p className="text-red-500 text-xs mt-2 text-center">{photoError}</p>
           )}
         </div>
+
+        {/* 약사 메시지 */}
+        {messages.length > 0 && (
+          <div className="card overflow-hidden">
+            <button
+              onClick={() => setMsgOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-5 py-4"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">💌</span>
+                <span className="font-bold text-gray-800 text-sm">이보라 약사님의 메시지</span>
+                <span className="inline-flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full">
+                  {messages.length}
+                </span>
+              </div>
+              <span className="text-gray-400 text-sm">{msgOpen ? "▲" : "▼"}</span>
+            </button>
+            {msgOpen && (
+              <div className="border-t border-gray-100 px-5 py-4 space-y-4">
+                {messages.map((msg, i) => (
+                  <div key={msg.id}>
+                    {i > 0 && <div className="border-t border-gray-100 mb-4" />}
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {msg.content}
+                    </p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs text-gray-400">{formatMsgDate(msg.created_at)}</span>
+                      <button
+                        onClick={() => confirmMessage(msg.id)}
+                        className="text-xs bg-green-100 text-green-700 font-semibold px-4 py-1.5 rounded-xl"
+                      >
+                        ✓ 확인했어요
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 이번 주 달성률 */}
         <div className="card p-5">

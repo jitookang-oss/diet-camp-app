@@ -821,6 +821,13 @@ interface WeeklyCheckin {
   check_date: string;
 }
 
+interface PendingMsg {
+  id: string;
+  phone: string;
+  content: string;
+  created_at: string;
+}
+
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
 function getWeekDays(todayStr: string): string[] {
@@ -842,10 +849,48 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [weeklyData, setWeeklyData] = useState<WeeklyCheckin[]>([]);
   const [weekLoading, setWeekLoading] = useState(false);
+  const [pendingMsgs, setPendingMsgs] = useState<PendingMsg[]>([]);
+  const [msgTarget, setMsgTarget] = useState<"all" | string>("all");
+  const [msgContent, setMsgContent] = useState("");
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgSent, setMsgSent] = useState(false);
 
   const weekDays = getWeekDays(todayStr);
   const daysElapsed = weekDays.filter((d) => d <= todayStr).length;
   const phoneParticipants = participants.filter((p) => p.phone);
+
+  async function fetchPendingMsgs() {
+    const { data } = await supabase
+      .from("messages")
+      .select("id, phone, content, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setPendingMsgs((data as PendingMsg[]) ?? []);
+  }
+
+  async function sendMessage() {
+    if (!msgContent.trim() || msgSending) return;
+    setMsgSending(true);
+    const body: Record<string, unknown> = {
+      content: msgContent.trim(),
+      password: ADMIN_PASSWORD,
+    };
+    if (msgTarget === "all") {
+      body.broadcast = true;
+    } else {
+      body.phone = msgTarget;
+    }
+    await fetch("/api/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setMsgContent("");
+    setMsgSending(false);
+    setMsgSent(true);
+    setTimeout(() => setMsgSent(false), 3000);
+    fetchPendingMsgs();
+  }
 
   async function fetchWeekly() {
     setWeekLoading(true);
@@ -872,6 +917,7 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
   useEffect(() => {
     fetchWeekly();
     fetchCheckins(todayStr);
+    fetchPendingMsgs();
   }, []);
 
   useEffect(() => { fetchCheckins(date); }, [date]);
@@ -1059,6 +1105,87 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
           </table>
         </div>
       )}
+
+      {/* 메시지 발송 */}
+      <div className="mt-8 pt-6 border-t border-gray-100">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">💌 메시지 발송</h3>
+
+        {/* 발신 대상 */}
+        <div className="flex gap-2 mb-3 flex-wrap">
+          <button
+            onClick={() => setMsgTarget("all")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+              msgTarget === "all" ? "bg-purple-100 border-purple-300 text-purple-700" : "border-gray-200 text-gray-500"
+            }`}
+          >
+            전체 발송
+          </button>
+          {phoneParticipants.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setMsgTarget(p.phone!)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                msgTarget === p.phone ? "bg-purple-100 border-purple-300 text-purple-700" : "border-gray-200 text-gray-500"
+              }`}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+
+        {/* 메시지 입력 */}
+        <textarea
+          value={msgContent}
+          onChange={(e) => setMsgContent(e.target.value)}
+          placeholder="참여자에게 보낼 메시지를 입력하세요..."
+          rows={3}
+          className="input-field w-full text-sm resize-none mb-3"
+        />
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={sendMessage}
+            disabled={msgSending || !msgContent.trim()}
+            className="btn-primary flex-1 disabled:opacity-50"
+          >
+            {msgSending
+              ? "발송 중..."
+              : msgTarget === "all"
+              ? "전체 발송"
+              : `${phoneParticipants.find((p) => p.phone === msgTarget)?.name ?? ""}에게 발송`}
+          </button>
+          {msgSent && (
+            <span className="text-xs text-green-600 font-semibold whitespace-nowrap">✓ 발송 완료</span>
+          )}
+        </div>
+
+        {/* 미확인 메시지 목록 */}
+        {pendingMsgs.length > 0 && (
+          <div className="mt-5">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-bold text-gray-400">미확인 메시지 ({pendingMsgs.length}건)</h4>
+              <button onClick={fetchPendingMsgs} className="text-xs text-gray-400 hover:text-gray-600">새로고침</button>
+            </div>
+            <div className="space-y-2">
+              {pendingMsgs.map((msg) => {
+                const p = participants.find((x) => x.phone === msg.phone);
+                const d = new Date(new Date(msg.created_at).getTime() + 9 * 60 * 60 * 1000);
+                return (
+                  <div key={msg.id} className="flex items-start gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-purple-700">{p?.name ?? msg.phone}</span>
+                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{msg.content}</p>
+                    </div>
+                    <span className="text-xs text-gray-400 flex-shrink-0">
+                      {d.getUTCMonth() + 1}/{d.getUTCDate()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
