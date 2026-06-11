@@ -1202,13 +1202,23 @@ export default function AdminPage() {
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState<"participants" | "checkin">("participants");
 
+  useEffect(() => {
+    if (localStorage.getItem("admin_authed") === "1") setAuthed(true);
+  }, []);
+
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
+      localStorage.setItem("admin_authed", "1");
       setAuthed(true);
     } else {
       setPwError(true);
     }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("admin_authed");
+    setAuthed(false);
   }
 
   function showToast(msg: string) {
@@ -1260,9 +1270,17 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto">
         {/* 헤더 */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">관리자</h1>
-            <p className="text-sm text-gray-500 mt-0.5">이지약국 12주 다이어트 캠프</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">관리자</h1>
+              <p className="text-sm text-gray-500 mt-0.5">이지약국 12주 다이어트 캠프</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 border border-gray-200 rounded-full"
+            >
+              로그아웃
+            </button>
           </div>
           {activeTab === "participants" && (
             <div className="flex items-center gap-2 flex-wrap">
