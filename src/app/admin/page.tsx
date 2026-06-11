@@ -811,19 +811,27 @@ interface CheckinRecord {
   type: string;
 }
 
+interface FoodPhoto {
+  phone: string;
+  photo_url: string;
+}
+
 function CheckinTab({ participants }: { participants: Participant[] }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(todayStr);
   const [checkins, setCheckins] = useState<CheckinRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [foodPhotos, setFoodPhotos] = useState<FoodPhoto[]>([]);
+  const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
 
   async function fetchCheckins(d: string) {
     setLoading(true);
-    const { data } = await supabase
-      .from("daily_checkins")
-      .select("phone, name, type")
-      .eq("check_date", d);
-    setCheckins((data as CheckinRecord[]) ?? []);
+    const [checkinRes, photoRes] = await Promise.all([
+      supabase.from("daily_checkins").select("phone, name, type").eq("check_date", d),
+      fetch(`/api/food-photo?date=${d}`).then((r) => r.json()),
+    ]);
+    setCheckins((checkinRes.data as CheckinRecord[]) ?? []);
+    setFoodPhotos(photoRes.photos ?? []);
     setLoading(false);
   }
 
@@ -880,6 +888,37 @@ function CheckinTab({ participants }: { participants: Participant[] }) {
           </div>
         ))}
       </div>
+
+      {/* 아침 식사 사진 */}
+      {foodPhotos.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+            📸 아침 식사 사진 ({foodPhotos.length}명)
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            {foodPhotos.map((fp) => {
+              const p = participants.find((x) => x.phone === fp.phone);
+              return (
+                <div key={fp.phone} className="relative cursor-pointer" onClick={() => setExpandedPhoto(expandedPhoto === fp.phone ? null : fp.phone)}>
+                  <img
+                    src={fp.photo_url}
+                    alt={p?.name ?? fp.phone}
+                    className="w-full h-28 object-cover rounded-xl"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs font-semibold px-2 py-1 rounded-b-xl truncate">
+                    {p?.name ?? fp.phone}
+                  </div>
+                  {expandedPhoto === fp.phone && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setExpandedPhoto(null)}>
+                      <img src={fp.photo_url} alt={p?.name} className="max-w-sm max-h-[80vh] rounded-2xl" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 참여자별 체크인 현황 테이블 */}
       {loading ? (

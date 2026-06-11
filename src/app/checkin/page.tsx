@@ -5,6 +5,7 @@ import { loadParticipant } from "@/lib/store";
 import { WEEKLY_MISSIONS } from "@/lib/missions";
 import { supabase } from "@/lib/supabase";
 import KoreanInput from "@/components/KoreanInput";
+import imageCompression from "browser-image-compression";
 
 type CheckinType = "supplement" | "lunch_walk" | "evening_exercise" | "mission";
 
@@ -100,6 +101,10 @@ export default function CheckinPage() {
   const [supplementsInput, setSupplementsInput] = useState("");
   const [savingSupplements, setSavingSupplements] = useState(false);
   const [toggling, setToggling] = useState<CheckinType | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function tick() { setCountdownMinutes(getCountdownMinutes()); }
@@ -120,6 +125,51 @@ export default function CheckinPage() {
     }
   }, []);
 
+  async function loadPhoto(p: string, date: string) {
+    const res = await fetch(`/api/food-photo?phone=${encodeURIComponent(p)}&date=${date}`);
+    const data = await res.json();
+    setPhotoUrl(data.photo_url ?? null);
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !phone || !hub) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      setPhotoError("20MB 이하의 사진만 업로드할 수 있어요.");
+      return;
+    }
+
+    setPhotoError("");
+    setPhotoUploading(true);
+    try {
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1080,
+        useWebWorker: true,
+        fileType: "image/jpeg",
+      });
+
+      const formData = new FormData();
+      formData.append("phone", phone);
+      formData.append("file", compressed, "photo.jpg");
+
+      const res = await fetch("/api/food-photo", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.success) {
+        setPhotoUrl(data.photo_url);
+      } else {
+        setPhotoError(data.error ?? "업로드에 실패했어요. 다시 시도해주세요.");
+      }
+    } catch {
+      setPhotoError("업로드 중 오류가 발생했어요. 다시 시도해주세요.");
+    } finally {
+      setPhotoUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   async function loadHub(p: string) {
     setHubLoading(true);
     try {
@@ -133,6 +183,7 @@ export default function CheckinPage() {
       setSupplementsInput(data.participant?.my_supplements ?? "");
       if (!data.participant?.my_supplements) setEditingSupplements(true);
       setPhase("ready");
+      loadPhoto(p, data.todayDate);
     } finally {
       setHubLoading(false);
     }
@@ -461,6 +512,63 @@ export default function CheckinPage() {
               );
             })}
           </div>
+        </div>
+
+        {/* 아침 식사 사진 */}
+        <div className="card p-5">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+            오늘의 아침 식사 📸
+          </h2>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoUpload}
+          />
+          {photoUrl ? (
+            <div>
+              <div className="relative">
+                <img
+                  src={photoUrl}
+                  alt="오늘의 아침 식사"
+                  className="w-full rounded-2xl object-cover max-h-56"
+                />
+                <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                  ✓ 완료
+                </div>
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={photoUploading}
+                className="mt-3 w-full text-xs text-gray-400 font-medium py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                다시 찍기
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoUploading}
+              className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-gray-300 transition-colors disabled:opacity-50"
+            >
+              {photoUploading ? (
+                <>
+                  <div className="text-3xl animate-pulse">📸</div>
+                  <span className="text-sm font-medium text-gray-500">압축 및 업로드 중...</span>
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl">📸</div>
+                  <span className="text-sm font-medium text-gray-600">사진 업로드하기</span>
+                  <span className="text-xs text-gray-400">카메라 또는 사진첩에서 선택</span>
+                </>
+              )}
+            </button>
+          )}
+          {photoError && (
+            <p className="text-red-500 text-xs mt-2 text-center">{photoError}</p>
+          )}
         </div>
 
         {/* 이번 주 달성률 */}
